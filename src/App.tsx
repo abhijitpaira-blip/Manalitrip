@@ -1,25 +1,68 @@
-import { useEffect, useRef, useState } from 'react'
-import { ArrowRight, Bell, Camera, Check, ChevronRight, CloudSun, Download, ExternalLink, IndianRupee, MapPin, Menu, Mountain, Plus, Send, ShieldCheck, Users, Utensils } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { ArrowRight, Bell, Camera, Check, ChevronRight, CloudSun, Download, ExternalLink, IndianRupee, MapPin, Menu, Mountain, Plus, RefreshCw, Send, ShieldCheck, Users, Utensils } from 'lucide-react'
 import { checklist, families, itinerary } from './data/trip'
 import { placeGuides } from './data/guides'
-import { isCloudSyncReady } from './lib/supabase'
+import { isCloudSyncReady, supabase } from './lib/supabase'
 import { uploadTripPhoto } from './lib/gallery'
-import { notifyGroup, readinessMessage, type NotificationChannel } from './lib/notifications'
+import { askGemini, isGeminiReady } from './lib/gemini'
+import { notifyGroup } from './lib/notifications'
+import { enableTripNotifications, notifyTrip } from './lib/push'
 
 const startDate = new Date('2026-10-16T00:00:00')
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
 const members = ['Abhijit', 'Maitrayee', 'Ariyan', 'Rakesh', 'Sumona', 'Arannya', 'Rajesh', 'Chaitrayee', 'Tanishka', 'Bikash', 'Susoma', 'Lit Champ']
-const starterPoll = [{ option: 'Amritsari kulcha dinner', votes: ['Rajesh', 'Sumona'] }, { option: 'Himachali sidu and thukpa', votes: ['Maitrayee'] }, { option: 'Simple dal, rice and vegetables', votes: [] }]
-const morningQuotes = ['A beautiful journey begins with one shared plan.', 'Let the countdown turn ordinary mornings into anticipation.', 'The best views are waiting for the whole family.', 'Pack a little excitement with your breakfast today.', 'Every day closer is one day nearer to our mountain story.']
-type Memory = { id: number; src: string; day: number; place: string; time: string; uploader: string; caption: string; quote: string }
+// Matches the member ids used by the trip-push-subscribe / trip-push-notify
+// Supabase Edge Functions (lowercase, no spaces).
+const slugifyMember = (name: string) => name.toLowerCase().replace(/\s+/g, '')
+const starterPoll = [
+  { option: 'Amritsari kulcha dinner', votes: ['Rajesh', 'Sumona'] },
+  { option: 'Himachali sidu and thukpa', votes: ['Maitrayee'] },
+  { option: 'Simple dal, rice and vegetables', votes: [] },
+]
+const morningQuotes = [
+  'A beautiful journey begins with one shared plan.',
+  'Let the countdown turn ordinary mornings into anticipation.',
+  'The best views are waiting for the whole family.',
+  'Pack a little excitement with your breakfast today.',
+  'Every day closer is one day nearer to our mountain story.',
+]
+const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
+const placeImages: Record<string, string> = {
+  'The Ridge': 'https://upload.wikimedia.org/wikipedia/commons/5/5e/Ridge%2C_Shimla.JPG',
+  'Christ Church': 'https://upload.wikimedia.org/wikipedia/commons/f/fd/Christ_Church%2C_Shimla.jpg',
+  'Kufri Himalayan Nature Park': 'https://upload.wikimedia.org/wikipedia/commons/8/84/Goral_of_Himalayan_Nature_Park%2C_Kufri.jpg',
+  'Kullu Valley': 'https://upload.wikimedia.org/wikipedia/commons/5/54/Kullu_Valley%2C_Vashisht%2C_Manali%2C_Apples%2C_India.jpg',
+  'Pandoh Dam': 'https://upload.wikimedia.org/wikipedia/commons/5/54/Pandoh_dam_manali.jpg',
+  'Solang Valley': 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Solang_Valley%2C_Manali.jpg',
+  'Atal Tunnel': 'https://upload.wikimedia.org/wikipedia/commons/4/4a/PM_Narendra_Modi_stands_at_the_entrance_to_the_Atal_Tunnel_in_Rohtang.jpg',
+  'Hadimba Devi Temple': 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Hidimba_Devi_Temple%2C_Dhungri_Manali_2.jpg',
+  'Manikaran Sahib': 'https://upload.wikimedia.org/wikipedia/commons/d/da/Manikaran_Sahib_.jpg',
+}
+
+type Memory = { id: number | string; src: string; day: number; place: string; time: string; uploader: string; caption: string; quote: string }
 type GuideWithMedia = { name: string; region: string; highlights: string; bestTime: string; history: string; food: string; mapQuery: string; imageUrl: string; moment: string }
-type ChatMessage = { id: number; member: string; text: string; time: string }
+type ChatMessage = { id: number | string; member: string; text: string; time: string }
+type StoredChatMessage = { id: string; member: string; text: string; created_at: string }
+type Expense = { id: number | string; description: string; amount: number; paidBy: string; participants: string[]; createdAt: string }
+type StoredExpense = { id: string; description: string; amount: number; paid_by_member: string | null; created_at: string; expense_participants: { member: string }[] }
+type StoredPhoto = { id: string; storage_path: string; uploaded_by: string; trip_day: number | null; place: string | null; caption: string | null; created_at: string }
+type Settlement = { from: string; to: string; amount: number }
+
+type NotificationChannel = 'mock' | 'telegram' | 'whatsapp'
+
 const starterMemories: Memory[] = [
   { id: 1, src: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=900&q=85', day: 1, place: 'Shimla', time: '5:30 PM', uploader: 'Abhijit', caption: 'First mountain evening', quote: 'The best journeys are shared.' },
   { id: 2, src: 'https://images.unsplash.com/photo-1597074866923-dc0589150358?auto=format&fit=crop&w=900&q=85', day: 4, place: 'Solang Valley', time: '9:15 AM', uploader: 'Maitrayee', caption: 'Crisp air, wide skies', quote: 'Collect moments, not things.' },
   { id: 3, src: 'https://images.unsplash.com/photo-1609947017136-9daf8e7e3f4d?auto=format&fit=crop&w=900&q=85', day: 7, place: 'Golden Temple', time: '6:45 AM', uploader: 'Rakesh', caption: 'A quiet golden morning', quote: 'Some places stay with us.' },
 ]
-const starterMessages: ChatMessage[] = [{ id: 1, member: 'Abhijit', text: 'Everyone please check the medicine and breakfast responsibilities.', time: '9:10 AM' }, { id: 2, member: 'Maitrayee', text: 'Ready for the mountain mornings!', time: '9:16 AM' }]
+
+const starterMessages: ChatMessage[] = [
+  { id: 1, member: 'Abhijit', text: 'Everyone please check the medicine and breakfast responsibilities.', time: '9:10 AM' },
+  { id: 2, member: 'Maitrayee', text: 'Ready for the mountain mornings!', time: '9:16 AM' },
+]
+const starterExpenses: Expense[] = [
+  { id: 1, description: 'Hotel advance', amount: 10000, paidBy: 'Abhijit', participants: ['Abhijit', 'Rakesh', 'Rajesh', 'Bikash'], createdAt: '2026-09-01T10:00:00.000Z' },
+]
 
 function App() {
   const [now, setNow] = useState(new Date())
@@ -28,7 +71,12 @@ function App() {
   const [activeSection, setActiveSection] = useState('home')
   const [notes, setNotes] = useState<string[]>(['Remember warm layers for Kasol nights.'])
   const [noteText, setNoteText] = useState('')
-  const [responsibilities, setResponsibilities] = useState([{ item: 'First-aid and medicines', person: 'Abhijit', done: false }, { item: 'Breakfast supplies', person: 'Rakesh', done: true }, { item: 'Dinner snacks', person: 'Rajesh', done: false }, { item: 'Water and chargers', person: 'Bikash', done: false }])
+  const [responsibilities, setResponsibilities] = useState([
+    { item: 'First-aid and medicines', person: 'Abhijit', done: false },
+    { item: 'Breakfast supplies', person: 'Rakesh', done: true },
+    { item: 'Dinner snacks', person: 'Rajesh', done: false },
+    { item: 'Water and chargers', person: 'Bikash', done: false },
+  ])
   const [poll, setPoll] = useState(starterPoll)
   const [pollOption, setPollOption] = useState('')
   const [voter, setVoter] = useState('Abhijit')
@@ -37,7 +85,15 @@ function App() {
   const [reminderStatus, setReminderStatus] = useState('')
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(starterMessages)
   const [chatText, setChatText] = useState('')
-  const [chatMember, setChatMember] = useState('Abhijit')
+  const [chatMember, setChatMember] = useState(() => localStorage.getItem('trip-chat-member') || 'Abhijit')
+  const [chatStatus, setChatStatus] = useState('')
+  const [realtimeStatus, setRealtimeStatus] = useState(isCloudSyncReady ? 'Connecting...' : 'Preview mode')
+  const [expenses, setExpenses] = useState<Expense[]>(starterExpenses)
+  const [expenseDescription, setExpenseDescription] = useState('')
+  const [expenseAmount, setExpenseAmount] = useState('')
+  const [expensePayer, setExpensePayer] = useState('Abhijit')
+  const [expenseParticipants, setExpenseParticipants] = useState<string[]>(members)
+  const [expenseStatus, setExpenseStatus] = useState('')
   const [memories, setMemories] = useState<Memory[]>(starterMemories)
   const [galleryDay, setGalleryDay] = useState('all')
   const [uploader, setUploader] = useState('Abhijit')
@@ -45,150 +101,812 @@ function App() {
   const [galleryTime, setGalleryTime] = useState('')
   const [galleryCaption, setGalleryCaption] = useState('')
   const [galleryStatus, setGalleryStatus] = useState('')
+  const [geminiPrompt, setGeminiPrompt] = useState('Write a 2-line family trip welcome message for the group.')
+  const [geminiReply, setGeminiReply] = useState('Gemini is not connected yet.')
+  const [geminiStatus, setGeminiStatus] = useState('')
+  const [pushStatus, setPushStatus] = useState('')
   const fileInput = useRef<HTMLInputElement>(null)
-  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60000); return () => window.clearInterval(timer) }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  // Remembers who is using this device/browser, so the same name is
+  // pre-selected next time and "Enable notifications" knows who to register.
+  useEffect(() => {
+    localStorage.setItem('trip-chat-member', chatMember)
+  }, [chatMember])
+
+  const refreshWebsite = () => window.location.reload()
+
+  useEffect(() => {
+    const refreshTimer = window.setInterval(refreshWebsite, 10 * 60 * 1000)
+    return () => window.clearInterval(refreshTimer)
+  }, [])
+
+  useEffect(() => {
+    const client = supabase
+    if (!client) return
+
+    let active = true
+    const channel = client
+      .channel('trip-chat')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
+        if (!active) return
+        const message = payload.new as StoredChatMessage
+        setChatMessages((current) => current.some((item) => String(item.id) === message.id) ? current : [...current, {
+          id: message.id,
+          member: message.member,
+          text: message.text,
+          time: new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        }])
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setRealtimeStatus('Live sync')
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setRealtimeStatus('Sync unavailable')
+      })
+
+    const loadMessages = async () => {
+      const { data, error } = await client
+        .from('chat_messages')
+        .select('id, member, text, created_at')
+        .order('created_at', { ascending: true })
+
+      if (!active) return
+      if (error) {
+        setChatStatus('Could not load the shared chat. Try again shortly.')
+        return
+      }
+      setChatMessages((data as StoredChatMessage[]).map((message) => ({
+        id: message.id,
+        member: message.member,
+        text: message.text,
+        time: new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+      })))
+    }
+
+    void loadMessages()
+    return () => {
+      active = false
+      void client.removeChannel(channel)
+    }
+  }, [])
+
+  useEffect(() => {
+    const client = supabase
+    if (!client) return
+
+    let active = true
+    const loadExpenses = async () => {
+      const { data, error } = await client
+        .from('expenses')
+        .select('id, description, amount, paid_by_member, created_at, expense_participants(member)')
+        .not('paid_by_member', 'is', null)
+        .order('created_at', { ascending: true })
+
+      if (!active) return
+      if (error) {
+        setExpenseStatus('Could not load shared expenses. Try again shortly.')
+        return
+      }
+      setExpenses((data as StoredExpense[]).map((expense) => ({
+        id: expense.id,
+        description: expense.description,
+        amount: expense.amount,
+        paidBy: expense.paid_by_member ?? 'Unknown member',
+        participants: expense.expense_participants.map((participant) => participant.member),
+        createdAt: expense.created_at,
+      })))
+    }
+
+    const channel = client
+      .channel('trip-expenses')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => { void loadExpenses() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_participants' }, () => { void loadExpenses() })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setRealtimeStatus('Live sync')
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setRealtimeStatus('Sync unavailable')
+      })
+
+    void loadExpenses()
+    return () => {
+      active = false
+      void client.removeChannel(channel)
+    }
+  }, [])
+
+  useEffect(() => {
+    const client = supabase
+    if (!client) return
+
+    let active = true
+    const loadPhotos = async () => {
+      const { data, error } = await client
+        .from('photos')
+        .select('id, storage_path, uploaded_by, trip_day, place, caption, created_at')
+        .order('created_at', { ascending: false })
+
+      if (!active || error) return
+      const cloudMemories = (data as StoredPhoto[]).map((photo) => {
+        const [time, ...captionParts] = (photo.caption ?? 'Trip memory').split(' · ')
+        return {
+          id: photo.id,
+          src: client.storage.from('trip-photos').getPublicUrl(photo.storage_path).data.publicUrl,
+          day: photo.trip_day ?? 1,
+          place: photo.place ?? 'Himachal',
+          time,
+          uploader: photo.uploaded_by,
+          caption: captionParts.join(' · ') || 'Trip memory',
+          quote: 'The road is better with all of us on it.',
+        }
+      })
+      setMemories((current) => [...cloudMemories, ...current.filter((memory) => typeof memory.id === 'number')])
+    }
+
+    const channel = client
+      .channel('trip-photos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'photos' }, () => { void loadPhotos() })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setRealtimeStatus('Live sync')
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setRealtimeStatus('Sync unavailable')
+      })
+
+    void loadPhotos()
+    return () => {
+      active = false
+      void client.removeChannel(channel)
+    }
+  }, [])
+
   const days = Math.max(0, Math.ceil((startDate.getTime() - now.getTime()) / 86400000))
   const reminderEnabled = days <= 40 && days >= 0
   const nextDay = itinerary.find((item) => item.day === Math.min(8, Math.max(1, Math.ceil((now.getTime() - startDate.getTime()) / 86400000) + 1))) ?? itinerary[0]
   const reminderTitle = days > 0 ? `${days} days to Himachal` : 'Himachal journey starts today!'
   const reminderMessage = days > 0 ? `Good morning, family! ${morningQuotes[days % morningQuotes.length]} Next: Day ${nextDay.day}, ${nextDay.title}.` : 'Good morning, family! Wishing everyone a very happy journey. Today we begin together.'
   const selected = itinerary.find((item) => item.day === selectedDay) ?? itinerary[0]
+
   const guideFor = (place: string): GuideWithMedia => {
     const guide = placeGuides[place]
     const isPunjab = ['Golden Temple', 'Wagah Border', 'Partition Museum', 'Jallianwala Bagh', 'Durgiana Temple', 'Gobindgarh Fort'].includes(place)
-    const imageUrl = isPunjab
+    const imageUrl = placeImages[place] ?? (isPunjab
       ? 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=900&q=80'
-      : 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=900&q=80'
-    return guide ? { ...guide, imageUrl, moment: `Pause here together for a family photograph, a quiet look around, and one story to carry home.` } : { name: place, region: 'Himachal route', highlights: 'Enjoy the local scenery, take photographs from safe viewpoints and follow local guidance.', bestTime: 'Daylight hours, with extra time kept for mountain-road conditions.', history: 'This stop is part of the cultural and scenic route connecting the family trip’s mountain destinations.', food: 'Choose a clean local cafe and try the regional thali, chai or a fresh seasonal snack.', mapQuery: place, imageUrl, moment: `Pause here together for a family photograph, a quiet look around, and one story to carry home.` }
+      : 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=900&q=80')
+
+    if (guide) {
+      return { ...guide, imageUrl, moment: 'Pause here together for a family photograph, a quiet look around, and one story to carry home.' }
+    }
+
+    return {
+      name: place,
+      region: 'Himachal route',
+      highlights: 'Enjoy the local scenery, take photographs from safe viewpoints and follow local guidance.',
+      bestTime: 'Daylight hours, with extra time kept for mountain-road conditions.',
+      history: 'This stop is part of the cultural and scenic route connecting the family trip’s mountain destinations.',
+      food: 'Choose a clean local cafe and try the regional thali, chai or a fresh seasonal snack.',
+      mapQuery: place,
+      imageUrl,
+      moment: 'Pause here together for a family photograph, a quiet look around, and one story to carry home.',
+    }
   }
+
   const progress = Math.round((done.length / checklist.length) * 100)
+
+  const balanceByMember = members.reduce<Record<string, number>>((balances, member) => {
+    balances[member] = 0
+    return balances
+  }, {})
+  expenses.forEach((expense) => {
+    const share = expense.amount / expense.participants.length
+    balanceByMember[expense.paidBy] += expense.amount
+    expense.participants.forEach((member) => { balanceByMember[member] -= share })
+  })
+  const settlements: Settlement[] = []
+  const creditors = Object.entries(balanceByMember).filter(([, balance]) => balance > 0.01).map(([member, balance]) => ({ member, balance }))
+  const debtors = Object.entries(balanceByMember).filter(([, balance]) => balance < -0.01).map(([member, balance]) => ({ member, balance: -balance }))
+  let creditorIndex = 0
+  let debtorIndex = 0
+  while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
+    const amount = Math.min(creditors[creditorIndex].balance, debtors[debtorIndex].balance)
+    settlements.push({ from: debtors[debtorIndex].member, to: creditors[creditorIndex].member, amount })
+    creditors[creditorIndex].balance -= amount
+    debtors[debtorIndex].balance -= amount
+    if (creditors[creditorIndex].balance < 0.01) creditorIndex += 1
+    if (debtors[debtorIndex].balance < 0.01) debtorIndex += 1
+  }
+
+  const addExpense = async () => {
+    const amount = Number(expenseAmount)
+    const description = expenseDescription.trim()
+    if (!description || !Number.isFinite(amount) || amount <= 0 || expenseParticipants.length === 0) {
+      setExpenseStatus('Add a description, amount and at least one member.')
+      return
+    }
+    const expense: Expense = { id: Date.now(), description, amount, paidBy: expensePayer, participants: expenseParticipants, createdAt: new Date().toISOString() }
+    setExpenseDescription('')
+    setExpenseAmount('')
+    if (supabase) {
+      const { data, error } = await supabase.from('expenses').insert({ description, amount: Math.round(amount), paid_by_member: expensePayer }).select('id, description, amount, paid_by_member, created_at').single()
+      if (error || !data) {
+        setExpenseStatus('Could not save this expense. Please try again.')
+        return
+      }
+      const { error: participantError } = await supabase.from('expense_participants').insert(expenseParticipants.map((member) => ({ expense_id: data.id, member })))
+      if (participantError) {
+        setExpenseStatus('Expense saved, but its participants could not be saved.')
+        return
+      }
+      setExpenses((current) => [...current, { ...expense, id: data.id }])
+      try {
+        await notifyGroup(`💰 New trip expense\n\n${description}: ${money.format(amount)}\nPaid by: ${expensePayer}\nShared by: ${expenseParticipants.join(', ')}\nEach share: ${money.format(amount / expenseParticipants.length)}`, 'telegram')
+        setExpenseStatus('Expense saved and shared. Telegram notification sent.')
+      } catch {
+        setExpenseStatus('Expense saved and shared, but Telegram notification could not be sent.')
+      }
+      return
+    }
+    setExpenses((current) => [...current, expense])
+    setExpenseStatus('Preview mode: this expense is visible only in this browser.')
+  }
+
+  const notifyOutstandingMembers = async () => {
+    const owing = settlements
+    const message = owing.length > 0
+      ? owing.map((settlement) => `${settlement.from} pays ${money.format(settlement.amount)} to ${settlement.to}`).join('. ')
+      : 'No outstanding repayments are due right now.'
+    if ('Notification' in window) {
+      const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
+      if (permission === 'granted') new Notification('Trip budget reminder', { body: message })
+    }
+    setExpenseStatus(message)
+  }
+
   const goTo = (section: string, target: string) => {
     setActiveSection(section)
     document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
-  const addNote = () => { if (noteText.trim()) { setNotes((current) => [...current, noteText.trim()]); setNoteText('') } }
-  const vote = (index: number) => setPoll((current) => current.map((item, itemIndex) => itemIndex === index && !item.votes.includes(voter) ? { ...item, votes: [...item.votes, voter] } : item))
-  const addPollOption = () => { if (pollOption.trim() && !poll.some((item) => item.option.toLowerCase() === pollOption.trim().toLowerCase())) { setPoll((current) => [...current, { option: pollOption.trim(), votes: [] }]); setPollOption('') } }
-  const sendChatMessage = () => { if (!chatText.trim()) return; setChatMessages((current) => [...current, { id: Date.now(), member: chatMember, text: chatText.trim(), time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }]); setChatText('') }
-  const shareUpdate = async () => { setNotificationStatus('Sending...'); try { const result = await notifyGroup(noteText.trim() || readinessMessage, notificationChannel); setNotificationStatus(result.delivered ? `Sent through ${result.mode}.` : 'Readiness notice prepared. Add Supabase and channel secrets to deliver it.') } catch (error) { setNotificationStatus(error instanceof Error ? error.message : 'Notification failed. Please try again.') } }
-  const sendReadinessNotice = async () => { setNotificationStatus('Sending readiness notice...'); try { const result = await notifyGroup(readinessMessage, notificationChannel); setNotificationStatus(result.delivered ? `Readiness notice sent through ${result.mode}.` : 'Preview notice prepared. Configure Supabase and the selected channel to deliver it.') } catch (error) { setNotificationStatus(error instanceof Error ? error.message : 'Readiness notice failed. Please try again.') } }
-  const enableMorningReminder = async () => { if (!('Notification' in window)) { setReminderStatus('Browser notifications are not supported here.'); return } const permission = await Notification.requestPermission(); if (permission === 'granted') { localStorage.setItem('himachal-morning-reminder', 'enabled'); setReminderStatus('Morning countdown reminder enabled on this device.') } else setReminderStatus('Notification permission was not granted.') }
-  useEffect(() => { if (localStorage.getItem('himachal-morning-reminder') === 'enabled' && Notification.permission === 'granted' && reminderEnabled) { const key = `himachal-reminder-${now.toISOString().slice(0, 10)}`; if (!localStorage.getItem(key)) { new Notification(reminderTitle, { body: reminderMessage }); localStorage.setItem(key, 'sent') } } }, [now, reminderEnabled, reminderMessage, reminderTitle])
+
+  const mapEmbedUrl = (query: string) => googleMapsApiKey
+    ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(googleMapsApiKey)}&q=${encodeURIComponent(query)}`
+    : undefined
+
+  const addNote = () => {
+    if (!noteText.trim()) return
+    setNotes((current) => [...current, noteText.trim()])
+    setNoteText('')
+  }
+
+  const vote = (index: number) => {
+    setPoll((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index && !item.votes.includes(voter)
+          ? { ...item, votes: [...item.votes, voter] }
+          : item,
+      ),
+    )
+  }
+
+  const addPollOption = () => {
+    if (!pollOption.trim()) return
+    const value = pollOption.trim()
+    if (poll.some((item) => item.option.toLowerCase() === value.toLowerCase())) return
+    setPoll((current) => [...current, { option: value, votes: [] }])
+    setPollOption('')
+  }
+
+  // Registers this device to receive real push notifications for whoever is
+  // currently selected in the chat composer. Uses the browser's native Web
+  // Push API via two Supabase Edge Functions — no Firebase involved.
+  const handleEnableNotifications = async () => {
+    setPushStatus('Enabling notifications...')
+    const result = await enableTripNotifications(slugifyMember(chatMember))
+    if (result.ok) {
+      setPushStatus(`Notifications on for ${chatMember} on this device.`)
+    } else if (result.reason === 'denied') {
+      setPushStatus('Notification permission was not granted.')
+    } else if (result.reason === 'not-supported') {
+      setPushStatus('This browser does not support push notifications.')
+    } else {
+      setPushStatus('Could not enable notifications on this device.')
+    }
+  }
+
+  const sendChatMessage = async () => {
+    if (!chatText.trim()) return
+    const text = chatText.trim()
+    setChatText('')
+
+    if (supabase) {
+      setChatStatus('Sending to the family...')
+      const { error } = await supabase.from('chat_messages').insert({ member: chatMember, text })
+      if (error) {
+        setChatStatus('Message could not be sent. Please try again.')
+        setChatText(text)
+        return
+      }
+      setChatStatus('Message sent to everyone.')
+      void notifyTrip({ title: 'New trip message', body: `${chatMember}: ${text}`, excludeMemberId: slugifyMember(chatMember) })
+      return
+    }
+
+    setChatMessages((current) => [...current, { id: Date.now(), member: chatMember, text, time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }])
+    setChatStatus('Preview mode: this message is only visible in this browser.')
+  }
+
+  const shareUpdate = async () => {
+    setNotificationStatus('Sending...')
+    try {
+      const result = await notifyGroup(noteText.trim() || 'Trip update', notificationChannel)
+      setNotificationStatus(result?.delivered ? `Sent through ${result.mode}.` : 'Preview notice prepared. Configure Supabase and the selected channel to deliver it.')
+    } catch (error) {
+      setNotificationStatus(error instanceof Error ? error.message : 'Notification failed. Please try again.')
+    }
+  }
+
+  const enableMorningReminder = async () => {
+    if (!('Notification' in window)) {
+      setReminderStatus('Browser notifications are not supported here.')
+      return
+    }
+    const permission = await Notification.requestPermission()
+    if (permission === 'granted') {
+      localStorage.setItem('himachal-morning-reminder', 'enabled')
+      setReminderStatus('Morning countdown reminder enabled on this device.')
+    } else {
+      setReminderStatus('Notification permission was not granted.')
+    }
+  }
+
+  useEffect(() => {
+    if (localStorage.getItem('himachal-morning-reminder') === 'enabled' && Notification.permission === 'granted' && reminderEnabled) {
+      const key = `himachal-reminder-${now.toISOString().slice(0, 10)}`
+      if (!localStorage.getItem(key)) {
+        new Notification(reminderTitle, { body: reminderMessage })
+        localStorage.setItem(key, 'sent')
+      }
+    }
+  }, [now, reminderEnabled, reminderMessage, reminderTitle])
+
   const filteredMemories = memories.filter((memory) => galleryDay === 'all' || memory.day === Number(galleryDay))
+
   const uploadMemories = async (files: FileList | null) => {
     if (!files?.length) return
-    const uploaded = [] as Memory[]
+
+    const uploaded: Memory[] = []
     for (const [index, file] of Array.from(files).filter((candidate) => candidate.type.startsWith('image/')).entries()) {
       const metadata = { uploader, day: selectedDay, place: galleryPlace, time: galleryTime || 'Trip memory', caption: galleryCaption || file.name.replace(/\.[^/.]+$/, '') }
+
       try {
         const cloudPhoto = await uploadTripPhoto(file, metadata)
-        uploaded.push({ id: Date.now() + index, src: cloudPhoto?.publicUrl ?? URL.createObjectURL(file), day: selectedDay, place: galleryPlace, time: metadata.time, uploader, caption: metadata.caption, quote: 'The road is better with all of us on it.' })
-      } catch { setGalleryStatus('Photo upload failed. Please check your connection and try again.'); return }
+        uploaded.push({
+          id: Date.now() + index,
+          src: cloudPhoto?.publicUrl ?? URL.createObjectURL(file),
+          day: selectedDay,
+          place: galleryPlace,
+          time: metadata.time,
+          uploader,
+          caption: metadata.caption,
+          quote: 'The road is better with all of us on it.',
+        })
+      } catch {
+        setGalleryStatus('Photo upload failed. Please check your connection and try again.')
+        return
+      }
     }
+
     setMemories((current) => [...uploaded, ...current])
     setGalleryStatus(`${uploaded.length} photo${uploaded.length === 1 ? '' : 's'} added${isCloudSyncReady ? ' and shared with the group.' : '. Preview mode keeps them in this browser.'}`)
   }
-  const downloadMemory = (memory: Memory) => { const link = document.createElement('a'); link.href = memory.src; link.download = `${memory.place}-day-${memory.day}.jpg`; link.click() }
-  const downloadAllMemories = () => { filteredMemories.forEach((memory, index) => window.setTimeout(() => downloadMemory(memory), index * 180)); setGalleryStatus(`Downloading ${filteredMemories.length} memories...`) }
-  const createMemoryVideo = async () => {
-    if (!filteredMemories.length) return
-    const canvas = document.createElement('canvas'); canvas.width = 960; canvas.height = 540
-    const context = canvas.getContext('2d'); if (!context || !('MediaRecorder' in window)) { setGalleryStatus('Video export is not supported in this browser.'); return }
-    const stream = canvas.captureStream(24); const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); const chunks: Blob[] = []
-    recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data) }
-    const finished = new Promise<void>((resolve) => { recorder.onstop = () => resolve() }); recorder.start()
-    for (const memory of filteredMemories.slice(0, 8)) {
-      const image = new Image(); image.crossOrigin = 'anonymous'; image.src = memory.src
-      await new Promise<void>((resolve) => { image.onload = () => { context.drawImage(image, 0, 0, canvas.width, canvas.height); context.fillStyle = 'rgba(16,48,43,.58)'; context.fillRect(0, 390, canvas.width, 150); context.fillStyle = '#f4d09b'; context.font = 'bold 28px Georgia'; context.fillText(`Day ${memory.day}  •  ${memory.place}`, 38, 438); context.fillStyle = '#fff'; context.font = '22px Georgia'; context.fillText(`“${memory.quote}”`, 38, 480); window.setTimeout(resolve, 1200) }; image.onerror = () => resolve() })
-    }
-    context.fillStyle = '#173f3a'; context.fillRect(0, 0, canvas.width, canvas.height); context.fillStyle = '#f4d09b'; context.font = 'bold 42px Georgia'; context.fillText('Himachal Family Trip 2026', 90, 235); context.fillStyle = '#fff'; context.font = '28px Georgia'; context.fillText('Until we meet again, travel home together.', 90, 290); window.setTimeout(() => recorder.stop(), 1600); await finished
-    const url = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })); const link = document.createElement('a'); link.href = url; link.download = 'himachal-family-trip-2026-memory-reel.webm'; link.click(); setGalleryStatus('Memory reel downloaded. Share the WebM on Facebook, Instagram or YouTube after exporting to MP4 if needed.')
+
+  const downloadMemory = (memory: Memory) => {
+    const link = document.createElement('a')
+    link.href = memory.src
+    link.download = `${memory.place}-day-${memory.day}.jpg`
+    link.click()
   }
 
-  /* return <div className="app-shell">
-    <header className="topbar"><div className="brand"><span className="brand-mark"><Mountain size={20} /></span><div><strong>Himachal Family Trip</strong><small>16-23 October 2026</small></div></div><div className="header-actions"><span className={`sync-status ${isCloudSyncReady ? 'synced' : 'local'}`}><span />{isCloudSyncReady ? 'Cloud ready' : 'Preview mode'}</span><button className="icon-button" aria-label="Notifications"><Bell size={20} /><span className="notification-dot" /></button></div></header>
-    <main>
-      <section className="hero"><div className="hero-copy"><p className="eyebrow">OUR NEXT CHAPTER</p><h1>Mountain roads.<br /><em>Family stories.</em></h1><p className="hero-subtitle">Shimla <span>•</span> Manali <span>•</span> Kasol <span>•</span> Amritsar</p><div className="countdown"><strong>{days}</strong><span>days to go</span></div><button className="primary-button" onClick={() => document.getElementById('itinerary')?.scrollIntoView({ behavior: 'smooth' })}>Explore the trip <ArrowRight size={17} /></button></div><div className="hero-stamp"><Mountain size={34} /><span>7N / 8D</span><small>12 travellers</small></div></section>
-      <section id="home" className="stat-grid"><Stat icon={<CloudSun />} label="October weather" value="Crisp & clear" /><Stat icon={<MapPin />} label="Today's base" value="Shimla" /><Stat icon={<Users />} label="Our circle" value="4 families" /><Stat icon={<IndianRupee />} label="Tour fund" value={money.format(175896)} /></section>
-      <section className={`morning-card ${days === 0 ? 'journey-day' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'center', margin: '0 0 18px', padding: '22px 26px', background: days === 0 ? '#f8e6b9' : '#dce9e9', borderLeft: '4px solid var(--saffron)' }}><div><p className="eyebrow">{days === 0 ? 'TODAY IS THE DAY' : reminderEnabled ? 'THE FINAL COUNTDOWN' : 'COUNTDOWN NOTES'}</p><h2>{reminderTitle}</h2><p>{reminderMessage}</p></div><div className="morning-actions"><button className="secondary-button" onClick={enableMorningReminder}><Bell size={16} /> {reminderEnabled ? 'Enable morning alert' : 'Get trip alerts'}</button>{reminderStatus && <small>{reminderStatus}</small>}</div></section><section className="share-notice panel"><div><p className="eyebrow">READY TO SHARE</p><h2>Tell everyone we're getting ready</h2><p>Open the message, choose the family group, and ask everyone to reply “Ready”.</p></div><div className="share-links"><a className="secondary-button" href={getShareUrl('telegram')} target="_blank" rel="noreferrer"><Send size={15} /> Telegram</a><a className="secondary-button" href={getShareUrl('whatsapp')} target="_blank" rel="noreferrer"><Send size={15} /> WhatsApp</a></div></section>
-  const [uploader, setUploader] = useState('Abhijit')
-  const [galleryPlace, setGalleryPlace] = useState('Shimla')
-  const [galleryTime, setGalleryTime] = useState('')
-  const [galleryCaption, setGalleryCaption] = useState('')
-  const [galleryStatus, setGalleryStatus] = useState('')
-  const fileInput = useRef<HTMLInputElement>(null)
-  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60000); return () => window.clearInterval(timer) }, [])
-  const days = Math.max(0, Math.ceil((startDate.getTime() - now.getTime()) / 86400000))
-  const reminderEnabled = days <= 40 && days >= 0
-  const nextDay = itinerary.find((item) => item.day === Math.min(8, Math.max(1, Math.ceil((now.getTime() - startDate.getTime()) / 86400000) + 1))) ?? itinerary[0]
-  const reminderTitle = days > 0 ? `${days} days to Himachal` : 'Himachal journey starts today!'
-  const reminderMessage = days > 0 ? `Good morning, family! ${morningQuotes[days % morningQuotes.length]} Next: Day ${nextDay.day}, ${nextDay.title}.` : 'Good morning, family! Wishing everyone a very happy journey. Today we begin together.'
-  const selected = itinerary.find((item) => item.day === selectedDay) ?? itinerary[0]
-  const guideFor = (place: string): GuideWithMedia => {
-    const guide = placeGuides[place]
-    const isPunjab = ['Golden Temple', 'Wagah Border', 'Partition Museum', 'Jallianwala Bagh', 'Durgiana Temple', 'Gobindgarh Fort'].includes(place)
-    const imageUrl = isPunjab
-      ? 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=900&q=80'
-      : 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&w=900&q=80'
-    return guide ? { ...guide, imageUrl, moment: `Pause here together for a family photograph, a quiet look around, and one story to carry home.` } : { name: place, region: 'Himachal route', highlights: 'Enjoy the local scenery, take photographs from safe viewpoints and follow local guidance.', bestTime: 'Daylight hours, with extra time kept for mountain-road conditions.', history: 'This stop is part of the cultural and scenic route connecting the family trip’s mountain destinations.', food: 'Choose a clean local cafe and try the regional thali, chai or a fresh seasonal snack.', mapQuery: place, imageUrl, moment: `Pause here together for a family photograph, a quiet look around, and one story to carry home.` }
-  }
-  const progress = Math.round((done.length / checklist.length) * 100)
-  const goTo = (section: string, target: string) => {
-    setActiveSection(section)
-    document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-  const addNote = () => { if (noteText.trim()) { setNotes((current) => [...current, noteText.trim()]); setNoteText('') } }
-  const vote = (index: number) => setPoll((current) => current.map((item, itemIndex) => itemIndex === index && !item.votes.includes(voter) ? { ...item, votes: [...item.votes, voter] } : item))
-  const addPollOption = () => { if (pollOption.trim() && !poll.some((item) => item.option.toLowerCase() === pollOption.trim().toLowerCase())) { setPoll((current) => [...current, { option: pollOption.trim(), votes: [] }]); setPollOption('') } }
-  const shareUpdate = async () => { setNotificationStatus('Sending...'); try { const result = await notifyGroup(noteText.trim() || readinessMessage, notificationChannel); setNotificationStatus(result.delivered ? `Sent through ${result.mode}.` : 'Readiness notice prepared. Add Supabase and channel secrets to deliver it.') } catch (error) { setNotificationStatus(error instanceof Error ? error.message : 'Notification failed. Please try again.') } }
-  const sendReadinessNotice = async () => { setNotificationStatus('Sending readiness notice...'); try { const result = await notifyGroup(readinessMessage, notificationChannel); setNotificationStatus(result.delivered ? `Readiness notice sent through ${result.mode}.` : 'Preview notice prepared. Configure Supabase and the selected channel to deliver it.') } catch (error) { setNotificationStatus(error instanceof Error ? error.message : 'Readiness notice failed. Please try again.') } }
-  const enableMorningReminder = async () => { if (!('Notification' in window)) { setReminderStatus('Browser notifications are not supported here.'); return } const permission = await Notification.requestPermission(); if (permission === 'granted') { localStorage.setItem('himachal-morning-reminder', 'enabled'); setReminderStatus('Morning countdown reminder enabled on this device.') } else setReminderStatus('Notification permission was not granted.') }
-  useEffect(() => { if (localStorage.getItem('himachal-morning-reminder') === 'enabled' && Notification.permission === 'granted' && reminderEnabled) { const key = `himachal-reminder-${now.toISOString().slice(0, 10)}`; if (!localStorage.getItem(key)) { new Notification(reminderTitle, { body: reminderMessage }); localStorage.setItem(key, 'sent') } } }, [now, reminderEnabled, reminderMessage, reminderTitle])
-  const filteredMemories = memories.filter((memory) => galleryDay === 'all' || memory.day === Number(galleryDay))
-  const uploadMemories = async (files: FileList | null) => {
-    if (!files?.length) return
-    const uploaded = [] as Memory[]
-    for (const [index, file] of Array.from(files).filter((candidate) => candidate.type.startsWith('image/')).entries()) {
-      const metadata = { uploader, day: selectedDay, place: galleryPlace, time: galleryTime || 'Trip memory', caption: galleryCaption || file.name.replace(/\.[^/.]+$/, '') }
-      try {
-        const cloudPhoto = await uploadTripPhoto(file, metadata)
-        uploaded.push({ id: Date.now() + index, src: cloudPhoto?.publicUrl ?? URL.createObjectURL(file), day: selectedDay, place: galleryPlace, time: metadata.time, uploader, caption: metadata.caption, quote: 'The road is better with all of us on it.' })
-      } catch { setGalleryStatus('Photo upload failed. Please check your connection and try again.'); return }
-    }
-    setMemories((current) => [...uploaded, ...current])
-    setGalleryStatus(`${uploaded.length} photo${uploaded.length === 1 ? '' : 's'} added${isCloudSyncReady ? ' and shared with the group.' : '. Preview mode keeps them in this browser.'}`)
-  }
-  const downloadMemory = (memory: Memory) => { const link = document.createElement('a'); link.href = memory.src; link.download = `${memory.place}-day-${memory.day}.jpg`; link.click() }
-  const downloadAllMemories = () => { filteredMemories.forEach((memory, index) => window.setTimeout(() => downloadMemory(memory), index * 180)); setGalleryStatus(`Downloading ${filteredMemories.length} memories...`) }
-  const createMemoryVideo = async () => {
-    if (!filteredMemories.length) return
-    const canvas = document.createElement('canvas'); canvas.width = 960; canvas.height = 540
-    const context = canvas.getContext('2d'); if (!context || !('MediaRecorder' in window)) { setGalleryStatus('Video export is not supported in this browser.'); return }
-    const stream = canvas.captureStream(24); const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' }); const chunks: Blob[] = []
-    recorder.ondataavailable = (event) => { if (event.data.size) chunks.push(event.data) }
-    const finished = new Promise<void>((resolve) => { recorder.onstop = () => resolve() }); recorder.start()
-    for (const memory of filteredMemories.slice(0, 8)) {
-      const image = new Image(); image.crossOrigin = 'anonymous'; image.src = memory.src
-      await new Promise<void>((resolve) => { image.onload = () => { context.drawImage(image, 0, 0, canvas.width, canvas.height); context.fillStyle = 'rgba(16,48,43,.58)'; context.fillRect(0, 390, canvas.width, 150); context.fillStyle = '#f4d09b'; context.font = 'bold 28px Georgia'; context.fillText(`Day ${memory.day}  •  ${memory.place}`, 38, 438); context.fillStyle = '#fff'; context.font = '22px Georgia'; context.fillText(`“${memory.quote}”`, 38, 480); window.setTimeout(resolve, 1200) }; image.onerror = () => resolve() })
-    }
-    context.fillStyle = '#173f3a'; context.fillRect(0, 0, canvas.width, canvas.height); context.fillStyle = '#f4d09b'; context.font = 'bold 42px Georgia'; context.fillText('Himachal Family Trip 2026', 90, 235); context.fillStyle = '#fff'; context.font = '28px Georgia'; context.fillText('Until we meet again, travel home together.', 90, 290); window.setTimeout(() => recorder.stop(), 1600); await finished
-    const url = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' })); const link = document.createElement('a'); link.href = url; link.download = 'himachal-family-trip-2026-memory-reel.webm'; link.click(); setGalleryStatus('Memory reel downloaded. Share the WebM on Facebook, Instagram or YouTube after exporting to MP4 if needed.')
+  const downloadAllMemories = () => {
+    filteredMemories.forEach((memory, index) => window.setTimeout(() => downloadMemory(memory), index * 180))
+    setGalleryStatus(`Downloading ${filteredMemories.length} memories...`)
   }
 
-  */ return <div className="app-shell">
-    <header className="topbar"><div className="brand"><span className="brand-mark"><Mountain size={20} /></span><div><strong>Himachal Family Trip</strong><small>16-23 October 2026</small></div></div><div className="header-actions"><span className={`sync-status ${isCloudSyncReady ? 'synced' : 'local'}`}><span />{isCloudSyncReady ? 'Cloud ready' : 'Preview mode'}</span><button className="icon-button" aria-label="Notifications"><Bell size={20} /><span className="notification-dot" /></button></div></header>
-    <main>
-      <section className="hero"><div className="hero-copy"><p className="eyebrow">OUR NEXT CHAPTER</p><h1>Mountain roads.<br /><em>Family stories.</em></h1><p className="hero-subtitle">Shimla <span>•</span> Manali <span>•</span> Kasol <span>•</span> Amritsar</p><div className="countdown"><strong>{days}</strong><span>days to go</span></div><button className="primary-button" onClick={() => document.getElementById('itinerary')?.scrollIntoView({ behavior: 'smooth' })}>Explore the trip <ArrowRight size={17} /></button></div><div className="hero-stamp"><Mountain size={34} /><span>7N / 8D</span><small>12 travellers</small></div></section>
-      <section id="home" className="stat-grid"><Stat icon={<CloudSun />} label="October weather" value="Crisp & clear" /><Stat icon={<MapPin />} label="Today's base" value="Shimla" /><Stat icon={<Users />} label="Our circle" value="4 families" /><Stat icon={<IndianRupee />} label="Tour fund" value={money.format(175896)} /></section>
-      <section className={`morning-card ${days === 0 ? 'journey-day' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'center', margin: '0 0 18px', padding: '22px 26px', background: days === 0 ? '#f8e6b9' : '#dce9e9', borderLeft: '4px solid var(--saffron)' }}><div><p className="eyebrow">{days === 0 ? 'TODAY IS THE DAY' : reminderEnabled ? 'THE FINAL COUNTDOWN' : 'COUNTDOWN NOTES'}</p><h2>{reminderTitle}</h2><p>{reminderMessage}</p></div><div className="morning-actions"><button className="secondary-button" onClick={enableMorningReminder}><Bell size={16} /> {reminderEnabled ? 'Enable morning alert' : 'Get trip alerts'}</button>{reminderStatus && <small>{reminderStatus}</small>}</div></section><section className="next-day panel" style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'flex-start', marginTop: 14, background: '#eaf1ef' }}><div><p className="eyebrow">NEXT ON THE ROAD</p><h2>Next tour plan</h2><p><strong>Day {nextDay.day} · {nextDay.date}</strong> {nextDay.title}</p><p className="next-day-note">Suggested timing: leave around 8:00 AM, keep daylight for the route, and carry water, warm layers and snacks.</p><div className="place-tags">{nextDay.places.map((place) => <span key={place}><MapPin size={13} />{place}</span>)}</div></div><CloudSun size={28} /></section>
-      <section className="section-heading"><div><p className="eyebrow">THE JOURNEY</p><h2>Eight days, one shared story</h2></div><button className="text-button">View all <ChevronRight size={16} /></button></section>
-      <section id="itinerary" className="itinerary-layout"><div className="day-list">{itinerary.map((item) => <button className={`day-row ${item.day === selectedDay ? 'active' : ''}`} key={item.day} onClick={() => setSelectedDay(item.day)}><span className="day-number">{String(item.day).padStart(2, '0')}</span><span><small>{item.date}</small><strong>{item.title}</strong></span><ChevronRight size={17} /></button>)}</div><article className="day-feature"><div className="feature-top"><span className="day-pill">DAY {selected.day}</span><span className="weather-note"><CloudSun size={15} /> Pre-winter chill</span></div><h3>{selected.title}</h3><p className="feature-note">{selected.note}</p><div className="place-tags">{selected.places.map((place) => <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(guideFor(place).mapQuery)}`} target="_blank" rel="noreferrer" key={place}><MapPin size={13} />{place}<ExternalLink size={12} /></a>)}</div><div className="place-guides">{selected.places.map((place) => { const guide = guideFor(place); return <div className="guide-card" key={place}><img className="guide-image" src={guide.imageUrl} alt={`${guide.name} travel view`} style={{ display: 'block', width: 'calc(100% + 30px)', height: 125, objectFit: 'cover', margin: '-15px -15px 14px', background: 'var(--sky)' }} onError={(event) => { event.currentTarget.style.display = 'none' }} /><div className="guide-heading"><div><span>{guide.region}</span><h4>{guide.name}</h4></div><a aria-label={`Open ${guide.name} in Google Maps`} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(guide.mapQuery)}`} target="_blank" rel="noreferrer"><MapPin size={16} /></a></div><p><b>See & do</b>{guide.highlights}</p><p><b>Best time</b>{guide.bestTime}</p><p><b>History</b>{guide.history}</p><p><b>Eat</b>{guide.food}</p><p className="memory-moment" style={{ padding: 9, background: '#f8e6b9', color: 'var(--pine)' }}><b>Remember</b>{guide.moment}</p></div> })}</div><div className="tip"><span>TIME TIP</span><p>Keep departures around 8 AM for bright roads, relaxed stops, and enough daylight to settle in.</p></div></article></section>
-      <section id="essentials" className="lower-grid"><article className="panel checklist-panel"><div className="panel-heading"><div><p className="eyebrow">READY WHEN WE ARE</p><h2>Pack together</h2></div><span className="progress-value">{progress}%</span></div><div className="progress-track"><span style={{ width: `${progress}%` }} /></div>{checklist.slice(0, 5).map((item) => <label className="check-row" key={item}><input type="checkbox" checked={done.includes(item)} onChange={() => setDone((current) => current.includes(item) ? current.filter((value) => value !== item) : [...current, item])} /><span className="check-box"><Check size={13} /></span>{item}</label>)}</article><article id="expenses" className="panel expense-panel"><div className="panel-heading"><div><p className="eyebrow">SHARED LEDGER</p><h2>Money, made simple</h2></div><IndianRupee size={22} /></div><div className="expense-total"><span>Opening tour fund</span><strong>{money.format(175896)}</strong></div>{families.map((family) => <div className="family-row" key={family.name}><span>{family.name}</span><strong>{money.format(family.share - family.paid)}</strong></div>)}<button className="secondary-button" onClick={() => goTo('expenses', 'expenses')}>Open expenses <ArrowRight size={16} /></button></article></section>
-      <section id="photos" className="gallery-panel panel"><div className="panel-heading"><div><p className="eyebrow">OUR SHARED ALBUM</p><h2>Moments by place & time</h2></div><Camera size={21} /></div><div className="gallery-toolbar"><select value={galleryDay} onChange={(event) => setGalleryDay(event.target.value)}><option value="all">All trip days</option>{itinerary.map((item) => <option value={item.day} key={item.day}>Day {item.day} · {item.date}</option>)}</select><button className="secondary-button" onClick={() => fileInput.current?.click()}><Plus size={16} /> Upload photos</button><input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(event) => uploadMemories(event.target.files)} /></div><div className="gallery-meta"><span>{isCloudSyncReady ? 'Everyone can see cloud-synced memories' : 'Preview mode: uploads are visible in this browser'}</span><button className="text-button" onClick={downloadAllMemories}><Download size={15} /> Download all</button><button className="text-button" onClick={createMemoryVideo}><Camera size={15} /> Make memory reel</button></div><div className="upload-details"><select value={uploader} onChange={(event) => setUploader(event.target.value)} aria-label="Uploaded by">{members.map((member) => <option key={member}>{member}</option>)}</select><select value={galleryPlace} onChange={(event) => setGalleryPlace(event.target.value)} aria-label="Place">{Object.keys(placeGuides).map((place) => <option key={place}>{place}</option>)}</select><input type="time" value={galleryTime} onChange={(event) => setGalleryTime(event.target.value)} aria-label="Photo time" /><input value={galleryCaption} onChange={(event) => setGalleryCaption(event.target.value)} placeholder="Caption for the moment" aria-label="Caption" /></div>{galleryStatus && <p className="gallery-status">{galleryStatus}</p>}<div className="memory-grid">{filteredMemories.map((memory) => <article className="memory-card" key={memory.id}><img src={memory.src} alt={`${memory.place}, Day ${memory.day}`} onError={(event) => { event.currentTarget.style.display = 'none' }} /><div className="memory-body"><div className="memory-location"><span>DAY {memory.day} · {memory.time}</span><button onClick={() => downloadMemory(memory)} aria-label={`Download ${memory.place} photo`}><Download size={15} /></button></div><h4>{memory.place}</h4><p>{memory.caption}</p><blockquote>“{memory.quote}”</blockquote><small>Uploaded by {memory.uploader}</small></div></article>)}</div></section><section className="quick-actions"><button onClick={() => setActiveSection('photos')}><Camera size={19} /><span><strong>Share a memory</strong><small>Upload photos for everyone</small></span><ChevronRight /></button><button onClick={() => goTo('essentials', 'essentials')}><ShieldCheck size={19} /><span><strong>Trip essentials</strong><small>Hotels, contacts and safety</small></span><ChevronRight /></button></section>
-      <section className="community-grid"><article className="panel"><div className="panel-heading"><div><p className="eyebrow">THE GROUP BOARD</p><h2>Notes everyone sees</h2></div><Download size={19} /></div><div className="note-list">{notes.map((note, index) => <p key={`${note}-${index}`}><span>{members[index % members.length][0]}</span>{note}</p>)}</div><div className="inline-form"><input value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="Add a shared note..." /><button aria-label="Add note" onClick={addNote}><Plus size={17} /></button></div><div className="notify-row"><select value={notificationChannel} onChange={(event) => setNotificationChannel(event.target.value as NotificationChannel)} aria-label="Notification channel"><option value="mock">Preview message</option><option value="telegram">Telegram group</option><option value="whatsapp">WhatsApp group</option></select><button className="secondary-button" onClick={shareUpdate}><Send size={15} /> Share update</button></div>{notificationStatus && <small className="notification-status">{notificationStatus}</small>}</article><article className="panel"><div className="panel-heading"><div><p className="eyebrow">WHO BRINGS WHAT</p><h2>Shared jobs</h2></div><Users size={19} /></div>{responsibilities.map((job, index) => <label className="job-row" key={job.item}><input type="checkbox" checked={job.done} onChange={() => setResponsibilities((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, done: !item.done } : item))} /><span>{job.item}<small>{job.person}</small></span><Check size={15} /></label>)}</article><article className="panel poll-panel"><div className="panel-heading"><div><p className="eyebrow">DECIDE TOGETHER</p><h2>Menu poll</h2></div><Utensils size={19} /></div><div className="poll-voter"><label>Your name<select style={{ display: 'block', width: '100%', minHeight: 38, marginTop: 5, border: '1px solid var(--line)', background: 'var(--snow)', color: 'var(--pine)', padding: '7px' }} value={voter} onChange={(event) => setVoter(event.target.value)}>{members.map((member) => <option key={member}>{member}</option>)}</select></label></div>{poll.map((item, index) => <button className="poll-option" key={item.option} onClick={() => vote(index)}><span>{item.option}<small>{item.votes.length} votes{item.votes.length ? ` · ${item.votes.join(', ')}` : ''}</small></span><span className={item.votes.includes(voter) ? 'voted' : ''}>{item.votes.includes(voter) ? 'Voted' : 'Vote'}</span></button>)}<div className="inline-form"><input value={pollOption} onChange={(event) => setPollOption(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') addPollOption() }} placeholder="Suggest a food..." /><button aria-label="Add food option" onClick={addPollOption}><Plus size={17} /></button></div></article></section>
-      <section className="chat-panel panel"><div className="panel-heading"><div><p className="eyebrow">FAMILY CHAT</p><h2>Talk together</h2></div><Users size={19} /></div><p>A shared space for plans, questions and quick updates.</p><div className="chat-messages">{chatMessages.map((message) => <div className="chat-message" key={message.id}><span>{message.member[0]}</span><div><strong>{message.member} <small>{message.time}</small></strong><p>{message.text}</p></div></div>)}</div><div className="chat-composer"><select value={chatMember} onChange={(event) => setChatMember(event.target.value)} aria-label="Chat member">{members.map((member) => <option key={member}>{member}</option>)}</select><input value={chatText} onChange={(event) => setChatText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') sendChatMessage() }} placeholder="Write to the family..." aria-label="Chat message" /><button onClick={sendChatMessage} aria-label="Send chat message"><Send size={17} /></button></div><small>{isCloudSyncReady ? 'Cloud chat can be connected with Supabase Realtime.' : 'Preview mode: messages stay in this browser until Supabase Realtime is connected.'}</small></section>
-    </main><nav className="bottom-nav"><button className={activeSection === 'home' ? 'selected' : ''} onClick={() => goTo('home', 'home')}><Mountain size={19} />Home</button><button className={activeSection === 'trip' ? 'selected' : ''} onClick={() => goTo('trip', 'itinerary')}><MapPin size={19} />Trip</button><button className={activeSection === 'expenses' ? 'selected' : ''} onClick={() => goTo('expenses', 'expenses')}><IndianRupee size={19} />Expenses</button><button className={activeSection === 'photos' ? 'selected' : ''} onClick={() => goTo('photos', 'photos')}><Camera size={19} />Photos</button><button aria-label="Open menu"><Menu size={20} /></button></nav>
-  </div>
+  const runGeminiTest = async () => {
+    if (!geminiPrompt.trim()) return
+    setGeminiStatus('Asking Gemini...')
+    try {
+      const answer = await askGemini(geminiPrompt.trim())
+      setGeminiReply(answer)
+      setGeminiStatus(isGeminiReady ? 'Gemini connected successfully.' : 'Gemini is enabled in the app but needs an API key in .env.')
+    } catch (error) {
+      setGeminiReply(error instanceof Error ? error.message : 'Gemini request failed.')
+      setGeminiStatus('Gemini connection error.')
+    }
+  }
+
+  const askGeminiAndSendToTelegram = async () => {
+    if (!geminiPrompt.trim()) return
+    setGeminiStatus('Gemini is writing the Telegram message...')
+    try {
+      const answer = await askGemini(`Write a concise, family-friendly Telegram message for the Himachal Family Trip group. Do not use markdown tables. Keep it under 500 words. Request: ${geminiPrompt.trim()}`)
+      setGeminiReply(answer)
+      const result = await notifyGroup(answer, 'telegram')
+      setGeminiStatus(result.delivered ? 'Gemini message sent to Telegram.' : 'Gemini message prepared. Configure Supabase and Telegram secrets for automatic delivery.')
+    } catch (error) {
+      setGeminiStatus(error instanceof Error ? error.message : 'Gemini to Telegram delivery failed.')
+    }
+  }
+
+  return (
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-mark"><Mountain size={20} /></span>
+          <div>
+            <strong>Himachal Family Trip</strong>
+            <small>16-23 October 2026</small>
+          </div>
+        </div>
+
+        <div className="header-actions">
+          <span className={`sync-status ${realtimeStatus === 'Live sync' ? 'synced' : 'local'}`}><span />{realtimeStatus}</span>
+          <button
+            className="icon-button"
+            aria-label="Notifications"
+            title={pushStatus || `Enable notifications for ${chatMember}`}
+            onClick={handleEnableNotifications}
+          >
+            <Bell size={20} />
+            <span className="notification-dot" />
+          </button>
+          <button className="icon-button" onClick={refreshWebsite} aria-label="Refresh trip data" title="Refresh trip data">
+            <RefreshCw size={18} />
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section className="hero">
+          <div className="hero-copy">
+            <p className="eyebrow">OUR NEXT CHAPTER</p>
+            <h1>Mountain roads.<br /><em>Family stories.</em></h1>
+            <p className="hero-subtitle">Shimla <span>•</span> Manali <span>•</span> Kasol <span>•</span> Amritsar</p>
+            <div className="countdown"><strong>{days}</strong><span>days to go</span></div>
+            <button className="primary-button" onClick={() => document.getElementById('itinerary')?.scrollIntoView({ behavior: 'smooth' })}>Explore the trip <ArrowRight size={17} /></button>
+          </div>
+          <div className="hero-stamp"><Mountain size={34} /><span>7N / 8D</span><small>12 travellers</small></div>
+        </section>
+
+        <section id="home" className="stat-grid">
+          <Stat icon={<CloudSun />} label="October weather" value="Crisp & clear" />
+          <Stat icon={<MapPin />} label="Today's base" value="Shimla" />
+          <Stat icon={<Users />} label="Our circle" value="4 families" />
+          <Stat icon={<IndianRupee />} label="Tour fund" value={money.format(175896)} />
+        </section>
+
+        <section className={`morning-card ${days === 0 ? 'journey-day' : ''}`}>
+          <div>
+            <p className="eyebrow">{days === 0 ? 'TODAY IS THE DAY' : reminderEnabled ? 'THE FINAL COUNTDOWN' : 'COUNTDOWN NOTES'}</p>
+            <h2>{reminderTitle}</h2>
+            <p>{reminderMessage}</p>
+          </div>
+          <div className="morning-actions">
+            <button className="secondary-button" onClick={enableMorningReminder}><Bell size={16} /> {reminderEnabled ? 'Enable morning alert' : 'Get trip alerts'}</button>
+            {reminderStatus && <small>{reminderStatus}</small>}
+          </div>
+        </section>
+
+        <section className="next-day panel">
+          <div>
+            <p className="eyebrow">NEXT ON THE ROAD</p>
+            <h2>Next tour plan</h2>
+            <p><strong>Day {nextDay.day} • {nextDay.date}</strong> {nextDay.title}</p>
+            <p className="next-day-note">Suggested timing: leave around 8:00 AM, keep daylight for the route, and carry water, warm layers and snacks.</p>
+            <div className="place-tags">{nextDay.places.map((place) => <span key={place}><MapPin size={13} />{place}</span>)}</div>
+          </div>
+          <CloudSun size={28} />
+        </section>
+
+        <section className="section-heading">
+          <div>
+            <p className="eyebrow">THE JOURNEY</p>
+            <h2>Eight days, one shared story</h2>
+          </div>
+          <button className="text-button">View all <ChevronRight size={16} /></button>
+        </section>
+
+        <section id="itinerary" className="itinerary-layout">
+          <div className="day-list">
+            {itinerary.map((item) => (
+              <button className={`day-row ${item.day === selectedDay ? 'active' : ''}`} key={item.day} onClick={() => setSelectedDay(item.day)}>
+                <span className="day-number">{String(item.day).padStart(2, '0')}</span>
+                <span><small>{item.date}</small><strong>{item.title}</strong></span>
+                <ChevronRight size={17} />
+              </button>
+            ))}
+          </div>
+
+          <article className="day-feature">
+            <div className="feature-top">
+              <span className="day-pill">DAY {selected.day}</span>
+              <span className="weather-note"><CloudSun size={15} /> Pre-winter chill</span>
+            </div>
+            <h3>{selected.title}</h3>
+            <p className="feature-note">{selected.note}</p>
+            <div className="place-tags">
+              {selected.places.map((place) => (
+                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(guideFor(place).mapQuery)}`} target="_blank" rel="noreferrer" key={place}><MapPin size={13} />{place}<ExternalLink size={12} /></a>
+              ))}
+            </div>
+            <div className="place-guides">
+              {selected.places.map((place) => {
+                const guide = guideFor(place)
+                return (
+                  <div className="guide-card" key={place}>
+                    <img className="guide-image" src={guide.imageUrl} alt={`${guide.name} travel view`} onError={(event) => { event.currentTarget.style.display = 'none' }} />
+                    <div className="guide-heading">
+                      <div><span>{guide.region}</span><h4>{guide.name}</h4></div>
+                      <a aria-label={`Open ${guide.name} in Google Maps`} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(guide.mapQuery)}`} target="_blank" rel="noreferrer"><MapPin size={16} /></a>
+                    </div>
+                    {mapEmbedUrl(guide.mapQuery) ? <iframe className="guide-map" title={`${guide.name} live map`} src={mapEmbedUrl(guide.mapQuery)} loading="lazy" referrerPolicy="no-referrer-when-downgrade" style={{ display: 'block', width: '100%', height: 150, marginBottom: 12, border: 0 }} /> : <small className="map-note" style={{ display: 'block', marginBottom: 12, color: 'var(--muted)', fontSize: 10 }}>Add a Google Maps browser key to show the live map here.</small>}
+                    <p><b>See & do</b>{guide.highlights}</p>
+                    <p><b>Best time</b>{guide.bestTime}</p>
+                    <p><b>History</b>{guide.history}</p>
+                    <p><b>Eat</b>{guide.food}</p>
+                    <p className="memory-moment"><b>Remember</b>{guide.moment}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </article>
+        </section>
+
+        <section id="essentials" className="lower-grid">
+          <article className="panel checklist-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">READY WHEN WE ARE</p>
+                <h2>Pack together</h2>
+              </div>
+              <span className="progress-value">{progress}%</span>
+            </div>
+            <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
+            {checklist.map((item) => (
+              <label className="check-row" key={item}>
+                <input type="checkbox" checked={done.includes(item)} onChange={() => setDone((current) => current.includes(item) ? current.filter((value) => value !== item) : [...current, item])} />
+                <span className="check-box"><Check size={13} /></span>
+                {item}
+              </label>
+            ))}
+          </article>
+
+          <article id="expenses" className="panel expense-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">SHARED LEDGER</p>
+                <h2>Clear trip budget</h2>
+              </div>
+              <IndianRupee size={22} />
+            </div>
+            <p>Add what was paid, choose everyone who benefited, and the app calculates each person’s exact share.</p>
+            <div className="expense-form">
+              <input value={expenseDescription} onChange={(event) => setExpenseDescription(event.target.value)} placeholder="What was this for?" aria-label="Expense description" />
+              <input type="number" min="1" value={expenseAmount} onChange={(event) => setExpenseAmount(event.target.value)} placeholder="Amount in INR" aria-label="Expense amount" />
+              <select value={expensePayer} onChange={(event) => setExpensePayer(event.target.value)} aria-label="Paid by">
+                {members.map((member) => <option key={member}>{member}</option>)}
+              </select>
+              <div className="expense-members">
+                <small>Shared by</small>
+                {members.map((member) => <label key={member}><input type="checkbox" checked={expenseParticipants.includes(member)} onChange={() => setExpenseParticipants((current) => current.includes(member) ? current.filter((value) => value !== member) : [...current, member])} />{member}</label>)}
+              </div>
+              <button className="secondary-button" onClick={addExpense}><Plus size={16} /> Add expense</button>
+            </div>
+            {expenseStatus && <small className="notification-status">{expenseStatus}</small>}
+            <div className="expense-total"><span>Total recorded expenses</span><strong>{money.format(expenses.reduce((total, expense) => total + expense.amount, 0))}</strong></div>
+            <div className="expense-list">
+              {expenses.map((expense) => <div className="expense-entry" key={expense.id}><span><strong>{expense.description}</strong><small>Paid by {expense.paidBy} · {expense.participants.length} members · {money.format(expense.amount / expense.participants.length)} each</small></span><b>{money.format(expense.amount)}</b></div>)}
+            </div>
+            <h3>Member balances</h3>
+            {members.map((member) => <div className="family-row" key={member}><span>{member}</span><strong className={balanceByMember[member] >= 0 ? 'credit' : 'due'}>{balanceByMember[member] >= 0 ? `gets ${money.format(balanceByMember[member])}` : `owes ${money.format(Math.abs(balanceByMember[member]))}`}</strong></div>)}
+            <h3>Who pays whom</h3>
+            {settlements.length > 0 ? settlements.map((settlement) => <div className="family-row" key={`${settlement.from}-${settlement.to}`}><span>{settlement.from} pays {settlement.to}</span><strong>{money.format(settlement.amount)}</strong></div>) : <p>Everyone is settled.</p>}
+            <button className="secondary-button" onClick={notifyOutstandingMembers}><Bell size={16} /> Notify members who owe</button>
+          </article>
+        </section>
+
+        <section id="photos" className="gallery-panel panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">OUR SHARED ALBUM</p>
+              <h2>Moments by place & time</h2>
+            </div>
+            <Camera size={21} />
+          </div>
+          <div className="gallery-toolbar">
+            <select value={galleryDay} onChange={(event) => setGalleryDay(event.target.value)}>
+              <option value="all">All trip days</option>
+              {itinerary.map((item) => <option value={item.day} key={item.day}>Day {item.day} • {item.date}</option>)}
+            </select>
+            <button className="secondary-button" onClick={() => fileInput.current?.click()}><Plus size={16} /> Upload photos</button>
+            <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(event) => uploadMemories(event.target.files)} />
+          </div>
+
+          <div className="gallery-meta">
+            <span>{isCloudSyncReady ? 'Everyone can see cloud-synced memories' : 'Preview mode: uploads are visible in this browser'}</span>
+            <button className="text-button" onClick={downloadAllMemories}><Download size={15} /> Download all</button>
+          </div>
+
+          <div className="upload-details">
+            <select value={uploader} onChange={(event) => setUploader(event.target.value)} aria-label="Uploaded by">
+              {members.map((member) => <option key={member}>{member}</option>)}
+            </select>
+            <select value={galleryPlace} onChange={(event) => setGalleryPlace(event.target.value)} aria-label="Place">
+              {Object.keys(placeGuides).map((place) => <option key={place}>{place}</option>)}
+            </select>
+            <input type="time" value={galleryTime} onChange={(event) => setGalleryTime(event.target.value)} aria-label="Photo time" />
+            <input value={galleryCaption} onChange={(event) => setGalleryCaption(event.target.value)} placeholder="Caption for the moment" aria-label="Caption" />
+          </div>
+
+          {galleryStatus && <p className="gallery-status">{galleryStatus}</p>}
+
+          <div className="memory-grid">
+            {filteredMemories.map((memory) => (
+              <article className="memory-card" key={memory.id}>
+                <img src={memory.src} alt={`${memory.place}, Day ${memory.day}`} onError={(event) => { event.currentTarget.style.display = 'none' }} />
+                <div className="memory-body">
+                  <div className="memory-location">
+                    <span>DAY {memory.day} • {memory.time}</span>
+                    <button onClick={() => downloadMemory(memory)} aria-label={`Download ${memory.place} photo`}><Download size={15} /></button>
+                  </div>
+                  <h4>{memory.place}</h4>
+                  <p>{memory.caption}</p>
+                  <blockquote>“{memory.quote}”</blockquote>
+                  <small>Uploaded by {memory.uploader}</small>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="community-grid">
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">THE GROUP BOARD</p>
+                <h2>Notes everyone sees</h2>
+              </div>
+              <Download size={19} />
+            </div>
+            <div className="note-list">
+              {notes.map((note, index) => (
+                <p key={`${note}-${index}`}><span>{members[index % members.length][0]}</span>{note}</p>
+              ))}
+            </div>
+            <div className="inline-form">
+              <input value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="Add a shared note..." />
+              <button aria-label="Add note" onClick={addNote}><Plus size={17} /></button>
+            </div>
+            <div className="notify-row">
+              <select value={notificationChannel} onChange={(event) => setNotificationChannel(event.target.value as NotificationChannel)} aria-label="Notification channel">
+                <option value="mock">Preview message</option>
+                <option value="telegram">Telegram group</option>
+                <option value="whatsapp">WhatsApp group</option>
+              </select>
+              <button className="secondary-button" onClick={shareUpdate}><Send size={15} /> Share update</button>
+            </div>
+            {notificationStatus && <small className="notification-status">{notificationStatus}</small>}
+          </article>
+
+          <article className="panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">WHO BRINGS WHAT</p>
+                <h2>Shared jobs</h2>
+              </div>
+              <Users size={19} />
+            </div>
+            {responsibilities.map((job, index) => (
+              <label className="job-row" key={job.item}>
+                <input type="checkbox" checked={job.done} onChange={() => setResponsibilities((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, done: !item.done } : item))} />
+                <span>{job.item}<small>{job.person}</small></span>
+                <Check size={15} />
+              </label>
+            ))}
+          </article>
+
+          <article className="panel poll-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">DECIDE TOGETHER</p>
+                <h2>Menu poll</h2>
+              </div>
+              <Utensils size={19} />
+            </div>
+            <div className="poll-voter">
+              <label>Your name
+                <select value={voter} onChange={(event) => setVoter(event.target.value)}>
+                  {members.map((member) => <option key={member}>{member}</option>)}
+                </select>
+              </label>
+            </div>
+            {poll.map((item, index) => (
+              <button key={item.option} className="poll-row" onClick={() => vote(index)}>
+                <span>{item.option}</span>
+                <strong>{item.votes.length}</strong>
+              </button>
+            ))}
+            <div className="inline-form poll-add">
+              <input value={pollOption} onChange={(event) => setPollOption(event.target.value)} placeholder="Add a food idea..." />
+              <button onClick={addPollOption}><Plus size={17} /></button>
+            </div>
+          </article>
+        </section>
+
+        <section className="chat-panel panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">FAMILY CHAT</p>
+              <h2>Talk together</h2>
+            </div>
+            <Users size={19} />
+          </div>
+          <p>A shared space for plans, questions and quick updates.</p>
+          <div className="chat-messages">
+            {chatMessages.map((message) => (
+              <div className="chat-message" key={message.id}>
+                <span>{message.member[0]}</span>
+                <div>
+                  <strong>{message.member} <small>{message.time}</small></strong>
+                  <p>{message.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="chat-composer">
+            <select value={chatMember} onChange={(event) => setChatMember(event.target.value)} aria-label="Chat member">
+              {members.map((member) => <option key={member}>{member}</option>)}
+            </select>
+            <input value={chatText} onChange={(event) => setChatText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') sendChatMessage() }} placeholder="Write to the family..." aria-label="Chat message" />
+            <button onClick={sendChatMessage} aria-label="Send chat message"><Send size={17} /></button>
+          </div>
+          <small>{chatStatus || (isCloudSyncReady ? 'Everyone sees new messages live.' : 'Preview mode: messages stay in this browser until Supabase is connected.')}</small>
+        </section>
+
+        <section className="panel gemini-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">AI ASSIST</p>
+              <h2>Gemini connection check</h2>
+            </div>
+            <ShieldCheck size={19} />
+          </div>
+          <p>Use a Gemini API key in your local .env file to test the connection.</p>
+          <textarea value={geminiPrompt} onChange={(event) => setGeminiPrompt(event.target.value)} rows={3} aria-label="Gemini prompt" />
+          <button className="secondary-button" onClick={runGeminiTest}>Ask Gemini</button>
+          <button className="secondary-button" onClick={askGeminiAndSendToTelegram}><Send size={15} /> Ask Gemini & send to Telegram</button>
+          {geminiStatus && <small className="notification-status" style={{ display: 'block' }}>{geminiStatus}</small>}
+          <p className="gemini-reply">{geminiReply}</p>
+        </section>
+      </main>
+
+      <nav className="bottom-nav">
+        <button className={activeSection === 'home' ? 'selected' : ''} onClick={() => goTo('home', 'home')}><Mountain size={19} />Home</button>
+        <button className={activeSection === 'trip' ? 'selected' : ''} onClick={() => goTo('trip', 'itinerary')}><MapPin size={19} />Trip</button>
+        <button className={activeSection === 'expenses' ? 'selected' : ''} onClick={() => goTo('expenses', 'expenses')}><IndianRupee size={19} />Expenses</button>
+        <button className={activeSection === 'photos' ? 'selected' : ''} onClick={() => goTo('photos', 'photos')}><Camera size={19} />Photos</button>
+        <button aria-label="Open menu"><Menu size={20} /></button>
+      </nav>
+    </div>
+  )
 }
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) { return <div className="stat-card"><span>{icon}</span><small>{label}</small><strong>{value}</strong></div> }
+
+function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+  return (
+    <div className="stat-card">
+      <span>{icon}</span>
+      <small>{label}</small>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
 export default App
