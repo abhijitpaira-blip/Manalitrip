@@ -593,9 +593,9 @@ function App() {
           <div className="destination-grid">
             {[
               { name: 'Shimla', tagline: 'The Queen of Hills, colonial charm, pine forests and cool mountain air.', image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=800&auto=format&fit=crop', tags: ['Mall Road', 'Jakhoo Temple', 'The Ridge'] },
-              { name: 'Manali', tagline: 'Snow-capped peaks, river valleys and the gateway to the high Himalayas.', image: 'https://images.unsplash.com/photo-1626016570426-486ad2071c9b?q=80&w=800&auto=format&fit=crop', tags: ['Solang Valley', 'Old Manali', 'Hadimba Temple'] },
-              { name: 'Kasol', tagline: 'A quiet Parvati Valley village of rivers, cafes and forest trails.', image: 'https://images.unsplash.com/photo-1626621341473-38f9b5b2b3b1?q=80&w=800&auto=format&fit=crop', tags: ['Parvati River', 'Manikaran Sahib', 'Cafes'] },
-              { name: 'Amritsar', tagline: 'The spiritual heart of Punjab, home to the shining Golden Temple.', image: 'https://images.unsplash.com/photo-1602313785206-2517173e0d6d?q=80&w=800&auto=format&fit=crop', tags: ['Golden Temple', 'Wagah Border', 'Jallianwala Bagh'] },
+              { name: 'Manali', tagline: 'Snow-capped peaks, river valleys and the gateway to the high Himalayas.', image: 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Solang_Valley%2C_Manali.jpg', tags: ['Solang Valley', 'Old Manali', 'Hadimba Temple'] },
+              { name: 'Kasol', tagline: 'A quiet Parvati Valley village of rivers, cafes and forest trails.', image: 'https://upload.wikimedia.org/wikipedia/commons/d/da/Manikaran_Sahib_.jpg', tags: ['Parvati River', 'Manikaran Sahib', 'Cafes'] },
+              { name: 'Amritsar', tagline: 'The spiritual heart of Punjab, home to the shining Golden Temple.', image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=900&q=80', tags: ['Golden Temple', 'Wagah Border', 'Jallianwala Bagh'] },
             ].map((destination) => (
               <article className="destination-card" key={destination.name}>
                 <img src={destination.image} alt={destination.name} onError={(event) => { event.currentTarget.style.display = 'none' }} />
