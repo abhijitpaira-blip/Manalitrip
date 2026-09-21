@@ -39,6 +39,52 @@ const placeImages: Record<string, string> = {
   'Manikaran Sahib': 'https://upload.wikimedia.org/wikipedia/commons/d/da/Manikaran_Sahib_.jpg',
 }
 
+type DestinationInfo = { tagline: string; image: string; tags: string[]; history: string; places: string[]; bestTime: string; food: string[]; photography: string[] }
+
+const destinationOrder = ['Shimla', 'Manali', 'Kasol', 'Amritsar']
+const destinationDetails: Record<string, DestinationInfo> = {
+  Shimla: {
+    tagline: 'The Queen of Hills, colonial charm, pine forests and cool mountain air.',
+    image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=800&auto=format&fit=crop',
+    tags: ['Mall Road', 'Jakhoo Temple', 'The Ridge'],
+    history: 'Shimla was built up by the British as the summer capital of colonial India, and its Tudor-style buildings, church spires and the heritage Kalka-Shimla railway still carry that character today. The Ridge and Mall Road remain the social heart of the town, now framed by deodar and pine forest.',
+    places: ['The Ridge', 'Mall Road', 'Jakhoo Temple', 'Christ Church', 'Kufri', 'Shimla State Museum'],
+    bestTime: 'Mid to late October brings clear skies, cool days and crisp evenings, ideal for walking Mall Road and the Ridge before winter snow sets in. Carry a warm layer for the evenings.',
+    food: ['Siddu', 'Chana Madra', 'Dham', 'Tudkiya Bhath', 'Himachali Rajma'],
+    photography: ['Sunrise from The Ridge', 'Jakhoo Temple viewpoint over the valley', 'Kufri meadows', 'Christ Church facade in the golden hour'],
+  },
+  Manali: {
+    tagline: 'Snow-capped peaks, river valleys and the gateway to the high Himalayas.',
+    image: 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Solang_Valley%2C_Manali.jpg',
+    tags: ['Solang Valley', 'Old Manali', 'Hadimba Temple'],
+    history: 'Set on the Beas river in the Kullu valley, Manali has long been a crossing point toward Ladakh and Lahaul-Spiti. Old Manali keeps its quiet, orchard-lined lanes, while the centuries-old Hadimba Temple, built in 1553 around a cave shrine, reflects the valley\'s deep local traditions.',
+    places: ['Solang Valley', 'Old Manali', 'Hadimba Devi Temple', 'Manu Temple', 'Mall Road', 'Vashisht hot springs', 'Atal Tunnel'],
+    bestTime: 'October is post-monsoon and clear, with pleasant days and cold nights; higher points like Solang and Atal Tunnel can already see early snow, so pack warm layers.',
+    food: ['Siddu', 'Thukpa', 'Momos', 'Himachali dishes', 'Old Manali cafe food'],
+    photography: ['Solang Valley mountain views', 'Old Manali riverside lanes', 'Hadimba Temple in the deodar forest', 'Atal Tunnel and the Sissu road'],
+  },
+  Kasol: {
+    tagline: 'A quiet Parvati Valley village of rivers, cafes and forest trails.',
+    image: 'https://upload.wikimedia.org/wikipedia/commons/d/da/Manikaran_Sahib_.jpg',
+    tags: ['Parvati River', 'Manikaran Sahib', 'Cafes'],
+    history: 'Kasol grew as a stop on the backpacker trail through the Parvati Valley and today mixes that laid-back cafe culture with the older pilgrimage town of Manikaran Sahib nearby, known for its Sikh gurudwara and natural hot springs.',
+    places: ['Parvati River banks', 'Manikaran Sahib', 'Village cafes', 'Chalal nature walk', 'Forest trails toward Tosh'],
+    bestTime: 'October keeps the valley cool and clear with good visibility for walks along the river; evenings turn cold quickly once the sun drops behind the ridge.',
+    food: ['Israeli-style cafe food', 'Momos', 'Thukpa', 'Local Himachali thali'],
+    photography: ['Parvati River from the footbridges', 'Valley viewpoints above the village', 'Forest trails toward Chalal', 'Manikaran hot springs at dusk'],
+  },
+  Amritsar: {
+    tagline: 'The spiritual heart of Punjab, home to the shining Golden Temple.',
+    image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=900&q=80',
+    tags: ['Golden Temple', 'Wagah Border', 'Jallianwala Bagh'],
+    history: 'Founded by the fourth Sikh Guru, Guru Ram Das, around the sacred tank at its centre, Amritsar grew around the Harmandir Sahib, the Golden Temple, completed in the early 1600s. The city also carries the weight of modern history at Jallianwala Bagh, where a 1919 massacre became a turning point in India\'s freedom movement.',
+    places: ['Golden Temple (Harmandir Sahib)', 'Jallianwala Bagh', 'Wagah Border ceremony', 'Partition Museum'],
+    bestTime: 'October is warm through the day and pleasant by evening, a comfortable window before Punjab\'s cold winter fog sets in; early morning is the calmest time at the Golden Temple.',
+    food: ['Amritsari kulcha', 'Chole', 'Lassi', 'Amritsari fish', 'Punjabi thali'],
+    photography: ['Golden Temple reflection in the Amrit Sarovar', 'The temple lit up at night', 'Heritage streets near the old city', 'The Wagah Border retreat ceremony'],
+  },
+}
+
 type Memory = { id: number | string; src: string; day: number; place: string; time: string; uploader: string; caption: string; quote: string }
 type GuideWithMedia = { name: string; region: string; highlights: string; bestTime: string; history: string; food: string; mapQuery: string; imageUrl: string; moment: string }
 type ChatMessage = { id: number | string; member: string; text: string; time: string }
@@ -105,6 +151,7 @@ function App() {
   const [geminiReply, setGeminiReply] = useState('Gemini is not connected yet.')
   const [geminiStatus, setGeminiStatus] = useState('')
   const [pushStatus, setPushStatus] = useState('')
+  const [activeDestination, setActiveDestination] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -591,23 +638,46 @@ function App() {
             </div>
           </div>
           <div className="destination-grid">
-            {[
-              { name: 'Shimla', tagline: 'The Queen of Hills, colonial charm, pine forests and cool mountain air.', image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=800&auto=format&fit=crop', tags: ['Mall Road', 'Jakhoo Temple', 'The Ridge'] },
-              { name: 'Manali', tagline: 'Snow-capped peaks, river valleys and the gateway to the high Himalayas.', image: 'https://upload.wikimedia.org/wikipedia/commons/b/b5/Solang_Valley%2C_Manali.jpg', tags: ['Solang Valley', 'Old Manali', 'Hadimba Temple'] },
-              { name: 'Kasol', tagline: 'A quiet Parvati Valley village of rivers, cafes and forest trails.', image: 'https://upload.wikimedia.org/wikipedia/commons/d/da/Manikaran_Sahib_.jpg', tags: ['Parvati River', 'Manikaran Sahib', 'Cafes'] },
-              { name: 'Amritsar', tagline: 'The spiritual heart of Punjab, home to the shining Golden Temple.', image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=900&q=80', tags: ['Golden Temple', 'Wagah Border', 'Jallianwala Bagh'] },
-            ].map((destination) => (
-              <article className="destination-card" key={destination.name}>
-                <img src={destination.image} alt={destination.name} onError={(event) => { event.currentTarget.style.display = 'none' }} />
-                <div className="destination-body">
-                  <h3>{destination.name}</h3>
-                  <p>{destination.tagline}</p>
-                  <div className="place-tags">{destination.tags.map((tag) => <span key={tag}><MapPin size={13} />{tag}</span>)}</div>
-                </div>
-              </article>
-            ))}
+            {destinationOrder.map((name) => {
+              const destination = destinationDetails[name]
+              return (
+                <article className="destination-card" key={name}>
+                  <img src={destination.image} alt={name} onError={(event) => { event.currentTarget.style.display = 'none' }} />
+                  <div className="destination-body">
+                    <h3>{name}</h3>
+                    <p>{destination.tagline}</p>
+                    <div className="place-tags">{destination.tags.map((tag) => <span key={tag}><MapPin size={13} />{tag}</span>)}</div>
+                    <button className="text-button destination-link" onClick={() => setActiveDestination(name)}>View details <ChevronRight size={16} /></button>
+                  </div>
+                </article>
+              )
+            })}
           </div>
         </section>
+
+        {activeDestination && destinationDetails[activeDestination] && (
+          <div className="destination-modal-overlay" onClick={() => setActiveDestination(null)}>
+            <article className="destination-modal" onClick={(event) => event.stopPropagation()}>
+              <button className="modal-close" onClick={() => setActiveDestination(null)} aria-label="Close destination details">×</button>
+              <img className="modal-image" src={destinationDetails[activeDestination].image} alt={activeDestination} onError={(event) => { event.currentTarget.style.display = 'none' }} />
+              <div className="modal-body">
+                <p className="eyebrow">DESTINATION GUIDE</p>
+                <h2>{activeDestination}</h2>
+                <p className="modal-tagline">{destinationDetails[activeDestination].tagline}</p>
+                <h4>About {activeDestination}</h4>
+                <p>{destinationDetails[activeDestination].history}</p>
+                <h4>Places to visit</h4>
+                <div className="place-tags">{destinationDetails[activeDestination].places.map((place) => <span key={place}><MapPin size={13} />{place}</span>)}</div>
+                <h4>Best time to visit</h4>
+                <p>{destinationDetails[activeDestination].bestTime}</p>
+                <h4>Food to try</h4>
+                <div className="place-tags">{destinationDetails[activeDestination].food.map((item) => <span key={item}><Utensils size={13} />{item}</span>)}</div>
+                <h4>Best photography spots</h4>
+                <div className="place-tags">{destinationDetails[activeDestination].photography.map((spot) => <span key={spot}><Camera size={13} />{spot}</span>)}</div>
+              </div>
+            </article>
+          </div>
+        )}
 
         <section className={`morning-card ${days === 0 ? 'journey-day' : ''}`}>
           <div>
