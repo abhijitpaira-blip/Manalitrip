@@ -583,6 +583,32 @@ function App() {
           <Stat icon={<IndianRupee />} label="Tour fund" value={money.format(175896)} />
         </section>
 
+        <section className="destinations-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">WHERE WE'RE HEADED</p>
+              <h2>Our destinations</h2>
+            </div>
+          </div>
+          <div className="destination-grid">
+            {[
+              { name: 'Shimla', tagline: 'The Queen of Hills, colonial charm, pine forests and cool mountain air.', image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?q=80&w=800&auto=format&fit=crop', tags: ['Mall Road', 'Jakhoo Temple', 'The Ridge'] },
+              { name: 'Manali', tagline: 'Snow-capped peaks, river valleys and the gateway to the high Himalayas.', image: 'https://images.unsplash.com/photo-1626016570426-486ad2071c9b?q=80&w=800&auto=format&fit=crop', tags: ['Solang Valley', 'Old Manali', 'Hadimba Temple'] },
+              { name: 'Kasol', tagline: 'A quiet Parvati Valley village of rivers, cafes and forest trails.', image: 'https://images.unsplash.com/photo-1626621341473-38f9b5b2b3b1?q=80&w=800&auto=format&fit=crop', tags: ['Parvati River', 'Manikaran Sahib', 'Cafes'] },
+              { name: 'Amritsar', tagline: 'The spiritual heart of Punjab, home to the shining Golden Temple.', image: 'https://images.unsplash.com/photo-1602313785206-2517173e0d6d?q=80&w=800&auto=format&fit=crop', tags: ['Golden Temple', 'Wagah Border', 'Jallianwala Bagh'] },
+            ].map((destination) => (
+              <article className="destination-card" key={destination.name}>
+                <img src={destination.image} alt={destination.name} onError={(event) => { event.currentTarget.style.display = 'none' }} />
+                <div className="destination-body">
+                  <h3>{destination.name}</h3>
+                  <p>{destination.tagline}</p>
+                  <div className="place-tags">{destination.tags.map((tag) => <span key={tag}><MapPin size={13} />{tag}</span>)}</div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className={`morning-card ${days === 0 ? 'journey-day' : ''}`}>
           <div>
             <p className="eyebrow">{days === 0 ? 'TODAY IS THE DAY' : reminderEnabled ? 'THE FINAL COUNTDOWN' : 'COUNTDOWN NOTES'}</p>
