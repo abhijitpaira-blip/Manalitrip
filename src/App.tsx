@@ -85,6 +85,17 @@ const destinationDetails: Record<string, DestinationInfo> = {
   },
 }
 
+const photoChallenges = [
+  { day: 1, place: 'Shimla', prompt: 'Full family photo at Shimla' },
+  { day: 2, place: 'Shimla', prompt: 'Mountain background photo' },
+  { day: 3, place: 'Manali', prompt: 'Manali group photo' },
+  { day: 4, place: 'Manali', prompt: 'Traditional Himachali photo' },
+  { day: 5, place: 'Kasol', prompt: 'Parvati Valley photo' },
+  { day: 6, place: 'Kasol', prompt: 'Adventure photo' },
+  { day: 7, place: 'Amritsar', prompt: 'Golden Temple family photo' },
+  { day: 8, place: 'Amritsar', prompt: 'Final trip group photo' },
+]
+
 type Memory = { id: number | string; src: string; day: number; place: string; time: string; uploader: string; caption: string; quote: string }
 type GuideWithMedia = { name: string; region: string; highlights: string; bestTime: string; history: string; food: string; mapQuery: string; imageUrl: string; moment: string }
 type ChatMessage = { id: number | string; member: string; text: string; time: string }
@@ -586,6 +597,13 @@ function App() {
 
   const filteredMemories = memories.filter((memory) => galleryDay === 'all' || memory.day === Number(galleryDay))
 
+  const startPhotoChallenge = (day: number, place: string, prompt: string) => {
+    setSelectedDay(day)
+    setGalleryPlace(place)
+    setGalleryCaption(prompt)
+    fileInput.current?.click()
+  }
+
   const uploadMemories = async (files: FileList | null) => {
     if (!files?.length) return
 
@@ -789,6 +807,29 @@ function App() {
           <div className="morning-actions">
             <button className="secondary-button" onClick={enableMorningReminder}><Bell size={16} /> {reminderEnabled ? 'Enable morning alert' : 'Get trip alerts'}</button>
             {reminderStatus && <small>{reminderStatus}</small>}
+          </div>
+        </section>
+
+        <section className="photo-challenge-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">DAILY CHALLENGE</p>
+              <h2>Family photo challenge</h2>
+            </div>
+          </div>
+          <div className="challenge-row">
+            {photoChallenges.map((challenge) => {
+              const completed = memories.some((memory) => memory.day === challenge.day)
+              return (
+                <div className={`challenge-card ${completed ? 'completed' : ''}`} key={challenge.day}>
+                  <span className="challenge-day">Day {challenge.day}</span>
+                  <p className="challenge-prompt">{challenge.prompt}</p>
+                  <button className="text-button" onClick={() => startPhotoChallenge(challenge.day, challenge.place, challenge.prompt)}>
+                    {completed ? <><Check size={14} /> Add another</> : <><Camera size={14} /> Add photo</>}
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </section>
 
