@@ -152,6 +152,12 @@ function App() {
   const [geminiStatus, setGeminiStatus] = useState('')
   const [pushStatus, setPushStatus] = useState('')
   const [activeDestination, setActiveDestination] = useState<string | null>(null)
+  const [sosStage, setSosStage] = useState<'idle' | 'active'>('idle')
+  const [sosHoldPct, setSosHoldPct] = useState(0)
+  const [sosLocationText, setSosLocationText] = useState('')
+  const [sosMapUrl, setSosMapUrl] = useState('')
+  const [sosTimeText, setSosTimeText] = useState('')
+  const sosIntervalRef = useRef<number | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -458,6 +464,70 @@ function App() {
     }
   }
 
+  const triggerSos = () => {
+    const now = new Date()
+    setSosStage('active')
+    setSosTimeText(now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }))
+    const postAlert = async (text: string) => {
+      if (supabase) {
+        await supabase.from('chat_messages').insert({ member: chatMember, text })
+      }
+      void notifyTrip({ title: 'Emergency SOS', body: `${chatMember} triggered an SOS alert`, excludeMemberId: slugifyMember(chatMember) })
+    }
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          const mapUrl = `https://maps.google.com/?q=${latitude},${longitude}`
+          setSosMapUrl(mapUrl)
+          setSosLocationText('Location shared with the family')
+          void postAlert(`SOS! ${chatMember} needs help. Last known location: ${mapUrl}`)
+        },
+        () => {
+          setSosLocationText('Location unavailable')
+          void postAlert(`SOS! ${chatMember} needs help. Location unavailable.`)
+        },
+        { timeout: 8000 }
+      )
+    } else {
+      setSosLocationText('Location unavailable')
+      void postAlert(`SOS! ${chatMember} needs help. Location unavailable.`)
+    }
+  }
+
+  const startSosHold = () => {
+    if (sosStage === 'active') return
+    const startedAt = Date.now()
+    sosIntervalRef.current = window.setInterval(() => {
+      const pct = Math.min(100, ((Date.now() - startedAt) / 3000) * 100)
+      setSosHoldPct(pct)
+      if (pct >= 100) {
+        if (sosIntervalRef.current) window.clearInterval(sosIntervalRef.current)
+        sosIntervalRef.current = null
+        triggerSos()
+      }
+    }, 60)
+  }
+
+  const cancelSosHold = () => {
+    if (sosIntervalRef.current) {
+      window.clearInterval(sosIntervalRef.current)
+      sosIntervalRef.current = null
+    }
+    setSosHoldPct(0)
+  }
+
+  const markSafe = () => {
+    setSosStage('idle')
+    setSosHoldPct(0)
+    setSosMapUrl('')
+    setSosLocationText('')
+    if (supabase) {
+      void supabase.from('chat_messages').insert({ member: chatMember, text: `${chatMember} is safe now.` })
+    }
+    void notifyTrip({ title: 'All clear', body: `${chatMember} marked themselves safe`, excludeMemberId: slugifyMember(chatMember) })
+  }
+
   const sendChatMessage = async () => {
     if (!chatText.trim()) return
     const text = chatText.trim()
@@ -597,6 +667,17 @@ function App() {
         <div className="header-actions">
           <span className={`sync-status ${realtimeStatus === 'Live sync' ? 'synced' : 'local'}`}><span />{realtimeStatus}</span>
           <button
+            className="sos-trigger"
+            onPointerDown={startSosHold}
+            onPointerUp={cancelSosHold}
+            onPointerLeave={cancelSosHold}
+            aria-label="Press and hold for 3 seconds to send an emergency SOS alert"
+            title="Press and hold for 3 seconds"
+          >
+            <span className="sos-fill" style={{ width: `${sosHoldPct}%` }} />
+            <span className="sos-label">SOS</span>
+          </button>
+          <button
             className="icon-button"
             aria-label="Notifications"
             title={pushStatus || `Enable notifications for ${chatMember}`}
@@ -612,6 +693,26 @@ function App() {
       </header>
 
       <main>
+        {sosStage === 'active' && (
+          <div className="sos-banner">
+            <div className="sos-banner-head">
+              <strong>Emergency alert sent</strong>
+              <span>{sosTimeText}</span>
+            </div>
+            <p>{chatMember} triggered an SOS. The family has been notified{sosLocationText ? ` \u2014 ${sosLocationText}` : ''}.</p>
+            <div className="sos-banner-actions">
+              {sosMapUrl && (
+                <a className="secondary-button" href={sosMapUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink size={16} /> View location
+                </a>
+              )}
+              <button className="primary-button" onClick={markSafe}>
+                <ShieldCheck size={16} /> I'm safe now
+              </button>
+            </div>
+          </div>
+        )}
+
         <section className="hero">
           <div className="hero-copy">
             <p className="eyebrow">OUR NEXT CHAPTER</p>
