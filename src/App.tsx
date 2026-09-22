@@ -75,7 +75,7 @@ const destinationDetails: Record<string, DestinationInfo> = {
   },
   Amritsar: {
     tagline: 'The spiritual heart of Punjab, home to the shining Golden Temple.',
-    image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=900&q=80',
+    image: 'https://upload.wikimedia.org/wikipedia/commons/a/a7/Golden_Temple_%28Harmandir_Sahib%29_in_Amritsar%2C_India.jpg',
     tags: ['Golden Temple', 'Wagah Border', 'Jallianwala Bagh'],
     history: 'Founded by the fourth Sikh Guru, Guru Ram Das, around the sacred tank at its centre, Amritsar grew around the Harmandir Sahib, the Golden Temple, completed in the early 1600s. The city also carries the weight of modern history at Jallianwala Bagh, where a 1919 massacre became a turning point in India\'s freedom movement.',
     places: ['Golden Temple (Harmandir Sahib)', 'Jallianwala Bagh', 'Wagah Border ceremony', 'Partition Museum'],
