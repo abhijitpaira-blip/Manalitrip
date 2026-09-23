@@ -1,10 +1,10 @@
 export type ItineraryDay = { day: number; date: string; title: string; places: string[]; note: string }
 
 export const families = [
-  { name: 'Abhijit Paira', weight: 2.5, share: 37500, paid: 2500 },
-  { name: 'Rakesh Mandal', weight: 2, share: 30000, paid: 2500 },
-  { name: 'Rajesh Mahata', weight: 2.5, share: 37500, paid: 2500 },
-  { name: 'Bikash Patra', weight: 2, share: 30000, paid: 2500 },
+  { name: 'Abhijit Paira', weight: 2.5, share: 37500, paid: 0 },
+  { name: 'Rakesh Mandal', weight: 2, share: 30000, paid: 0 },
+  { name: 'Rajesh Mahata', weight: 2.5, share: 37500, paid: 0 },
+  { name: 'Bikash Patra', weight: 2, share: 30000, paid: 0 },
 ]
 
 export const itinerary: ItineraryDay[] = [
