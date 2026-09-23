@@ -7,6 +7,7 @@ import { uploadTripPhoto } from './lib/gallery'
 import { askGemini, isGeminiReady } from './lib/gemini'
 import { notifyGroup } from './lib/notifications'
 import { enableTripNotifications, notifyTrip } from './lib/push'
+import AuthGate from './components/AuthGate'
 
 const startDate = new Date('2026-10-16T00:00:00')
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
@@ -672,6 +673,7 @@ function App() {
   }
 
   return (
+    <AuthGate>
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
@@ -1134,6 +1136,7 @@ function App() {
         <button aria-label="Open menu"><Menu size={20} /></button>
       </nav>
     </div>
+    </AuthGate>
   )
 }
 
