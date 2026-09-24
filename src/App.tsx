@@ -29,6 +29,9 @@ const morningQuotes = [
 ]
 const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
 const placeImages: Record<string, string> = {
+  'Golden Temple': 'https://upload.wikimedia.org/wikipedia/commons/a/a7/Golden_Temple_%28Harmandir_Sahib%29_in_Amritsar%2C_India.jpg',
+  'Wagah Border': 'https://upload.wikimedia.org/wikipedia/commons/3/3d/A_crowd_of_patriotic_Indians_near_the_Wagah_Border%2C_Punjab%2C_India%2C_7_April_2023.jpg',
+  'Partition Museum': 'https://upload.wikimedia.org/wikipedia/commons/1/16/Partition_Museum%2C_Amritsar%2C_India.jpg',
   'The Ridge': 'https://upload.wikimedia.org/wikipedia/commons/5/5e/Ridge%2C_Shimla.JPG',
   'Christ Church': 'https://upload.wikimedia.org/wikipedia/commons/f/fd/Christ_Church%2C_Shimla.jpg',
   'Kufri Himalayan Nature Park': 'https://upload.wikimedia.org/wikipedia/commons/8/84/Goral_of_Himalayan_Nature_Park%2C_Kufri.jpg',
