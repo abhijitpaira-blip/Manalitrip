@@ -7,6 +7,17 @@ export const families = [
   { name: 'Bikash Patra', weight: 2, share: 30000, paid: 0 },
 ]
 
+export const familyMembers: Record<string, string[]> = {
+  'Abhijit Paira': ['Abhijit', 'Maitrayee', 'Ariyan'],
+  'Rakesh Mandal': ['Rakesh', 'Sumona', 'Arannya'],
+  'Rajesh Mahata': ['Rajesh', 'Chaitrayee', 'Tanishka'],
+  'Bikash Patra': ['Bikash', 'Susoma', 'Lit Champ'],
+}
+
+export const familyOfMember: Record<string, string> = Object.fromEntries(
+  Object.entries(familyMembers).flatMap(([family, people]) => people.map((person) => [person, family]))
+)
+
 export const itinerary: ItineraryDay[] = [
   { day: 1, date: '16 Oct', title: 'Shimla pick-up and hotel transfer', places: ['Mall Road'], note: 'Settle in, keep the evening gentle, and take a first walk through Shimla.' },
   { day: 2, date: '17 Oct', title: 'Shimla local and Kufri sightseeing', places: ['The Ridge', 'Christ Church', 'Lakkar Bazaar', 'Kufri Himalayan Nature Park'], note: 'Start early for clear mountain light and lighter crowds at Kufri.' },
