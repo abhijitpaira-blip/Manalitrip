@@ -769,6 +769,31 @@ function App() {
           <Stat icon={<IndianRupee />} label="Tour fund" value={money.format(175896)} />
         </section>
 
+        <section className="need-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">QUICK ACCESS</p>
+              <h2>What do you need?</h2>
+            </div>
+          </div>
+          <div className="need-grid">
+            {[
+              { icon: <MapPin size={20} />, label: 'Itinerary', hint: 'Day-by-day plan', section: 'itinerary', target: 'itinerary' },
+              { icon: <IndianRupee size={20} />, label: 'Expenses', hint: 'Track and split spending', section: 'expenses', target: 'expenses' },
+              { icon: <Camera size={20} />, label: 'Photos', hint: 'Family memories', section: 'photos', target: 'photos' },
+              { icon: <Check size={20} />, label: 'Packing list', hint: 'What to carry', section: 'essentials', target: 'essentials' },
+              { icon: <CloudSun size={20} />, label: 'Weather', hint: "Today's conditions", section: 'home', target: 'home' },
+              { icon: <Users size={20} />, label: 'Family', hint: '12 travellers, 4 families', section: 'home', target: 'home' },
+            ].map((item) => (
+              <button className="need-card" key={item.label} onClick={() => goTo(item.section, item.target)}>
+                <span className="need-icon">{item.icon}</span>
+                <span className="need-label">{item.label}</span>
+                <span className="need-hint">{item.hint}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
         <section className="destinations-section">
           <div className="section-heading">
             <div>
