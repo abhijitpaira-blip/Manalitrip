@@ -29,6 +29,16 @@ const morningQuotes = [
 ]
 const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
 const placeImages: Record<string, string> = {
+  'Mall Road': 'https://commons.wikimedia.org/wiki/Special:FilePath/Mall_Road_Shimla_1.jpg',
+  'Lakkar Bazaar': 'https://commons.wikimedia.org/wiki/Special:FilePath/Longwood_(Shimla).jpg',
+  'Sundernagar Lake': 'https://commons.wikimedia.org/wiki/Special:FilePath/Beas_river%2C_Aut_Himachal_8.jpg',
+  'Sissu': 'https://commons.wikimedia.org/wiki/Special:FilePath/Top_View_of_Sissu_%2C_Lahaul.jpg',
+  'Old Manali': 'https://commons.wikimedia.org/wiki/Special:FilePath/Old_Manali_2.jpg',
+  'Vashisht Temple': 'https://commons.wikimedia.org/wiki/Special:FilePath/Vashisht_temple_near_manali.jpg',
+  'Kasol': 'https://commons.wikimedia.org/wiki/Special:FilePath/Water_stream_in_Kasol_Parvati_Valley.jpg',
+  'Jallianwala Bagh': 'https://commons.wikimedia.org/wiki/Special:FilePath/Jallianwala_Bagh_Memorial_in_Amritsar.jpg',
+  'Durgiana Temple': 'https://commons.wikimedia.org/wiki/Special:FilePath/Durgiana_Temple%2C_Amritsar.jpg',
+  'Gobindgarh Fort': 'https://commons.wikimedia.org/wiki/Special:FilePath/Gobindgarh_fort%2C_Amritsar%2C_Punjab%2C_India.jpg',
   'Golden Temple': 'https://upload.wikimedia.org/wikipedia/commons/a/a7/Golden_Temple_%28Harmandir_Sahib%29_in_Amritsar%2C_India.jpg',
   'Wagah Border': 'https://upload.wikimedia.org/wikipedia/commons/3/3d/A_crowd_of_patriotic_Indians_near_the_Wagah_Border%2C_Punjab%2C_India%2C_7_April_2023.jpg',
   'Partition Museum': 'https://upload.wikimedia.org/wikipedia/commons/1/16/Partition_Museum%2C_Amritsar%2C_India.jpg',
