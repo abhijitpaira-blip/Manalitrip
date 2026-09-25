@@ -165,6 +165,7 @@ function App() {
   const [expensePayer, setExpensePayer] = useState('Abhijit')
   const [expenseParticipants, setExpenseParticipants] = useState<string[]>(families.map((family) => family.name))
   const [expenseStatus, setExpenseStatus] = useState('')
+  const [isAddingExpense, setIsAddingExpense] = useState(false)
   const [memories, setMemories] = useState<Memory[]>(starterMemories)
   const [galleryDay, setGalleryDay] = useState('all')
   const [uploader, setUploader] = useState('Abhijit')
@@ -399,12 +400,15 @@ function App() {
   }
 
   const addExpense = async () => {
+    if (isAddingExpense) return
     const amount = Number(expenseAmount)
     const description = expenseDescription.trim()
     if (!description || !Number.isFinite(amount) || amount <= 0 || expenseParticipants.length === 0) {
       setExpenseStatus('Add a description, amount and at least one member.')
       return
     }
+    setIsAddingExpense(true)
+    try {
     const expense: Expense = { id: Date.now(), description, amount, paidBy: expensePayer, participants: expenseParticipants, createdAt: new Date().toISOString() }
     setExpenseDescription('')
     setExpenseAmount('')
@@ -981,7 +985,7 @@ function App() {
                 <small>Shared by (families)</small>
                 {families.map((family) => <label key={family.name}><input type="checkbox" checked={expenseParticipants.includes(family.name)} onChange={() => setExpenseParticipants((current) => current.includes(family.name) ? current.filter((value) => value !== family.name) : [...current, family.name])} />{family.name}</label>)}
               </div>
-              <button className="secondary-button" onClick={addExpense}><Plus size={16} /> Add expense</button>
+              <button className="secondary-button" onClick={addExpense} disabled={isAddingExpense}><Plus size={16} /> {isAddingExpense ? 'Adding...' : 'Add expense'}</button>
             </div>
             {expenseStatus && <small className="notification-status">{expenseStatus}</small>}
             <div className="expense-total"><span>Total recorded expenses</span><strong>{money.format(expenses.reduce((total, expense) => total + expense.amount, 0))}</strong></div>
@@ -1181,7 +1185,10 @@ function App() {
     </div>
     </AuthGate>
   )
-}
+    } finally {
+      setIsAddingExpense(false)
+    }
+  }
 
 function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
