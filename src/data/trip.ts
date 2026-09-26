@@ -2,7 +2,7 @@ export type ItineraryDay = { day: number; date: string; title: string; places: s
 
 export const families = [
   { name: 'Abhijit Paira', weight: 2.5, share: 37500, trainShare: 12186, paid: 32322 },
-  { name: 'Rakesh Mandal', weight: 2, share: 30000, trainShare: 9748, paid: 18700 },
+  { name: 'Rakesh Mandal', weight: 2, share: 30000, trainShare: 9748, paid: 28700 },
   { name: 'Rajesh Mahata', weight: 2.5, share: 37500, trainShare: 10688, paid: 19063 },
   { name: 'Bikash Patra', weight: 2, share: 30000, trainShare: 8550, paid: 19063 },
 ]
