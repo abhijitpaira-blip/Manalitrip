@@ -995,6 +995,25 @@ function App() {
             <div className="expense-list">
               {expenses.map((expense) => <div className="expense-entry" key={expense.id}><span><strong>{expense.description}</strong><small>Paid by {expense.paidBy} · {expense.participants.length} members · {money.format(expense.amount / expense.participants.length)} each</small></span><b>{money.format(expense.amount)}</b></div>)}
             </div>
+            <h3>Tour package &amp; train settlement</h3>
+            <div className="settlement-table">
+              <div className="settlement-row settlement-head"><span>Family</span><span>Package</span><span>Train</span><span>Total</span><span>Paid</span><span>Balance</span></div>
+              {families.map((family) => {
+                const total = family.share + family.trainShare
+                const balance = total - family.paid
+                return (
+                  <div className="settlement-row" key={family.name}>
+                    <span>{family.name}</span>
+                    <span>{money.format(family.share)}</span>
+                    <span>{money.format(family.trainShare)}</span>
+                    <span>{money.format(total)}</span>
+                    <span>{money.format(family.paid)}</span>
+                    <strong className={balance > 0 ? 'due' : 'credit'}>{balance > 0 ? `${money.format(balance)} due` : 'Settled'}</strong>
+                  </div>
+                )
+              })}
+            </div>
+            <p className="settlement-note">Rakesh already paid ₹10,000 to Abhijit as an internal settlement (already reflected above).</p>
             <h3>Family balances</h3>
             {families.map((family) => <div className="family-row" key={family.name}><span>{family.name}</span><strong className={balanceByMember[family.name] >= 0 ? 'credit' : 'due'}>{balanceByMember[family.name] >= 0 ? `gets ${money.format(balanceByMember[family.name])}` : `owes ${money.format(Math.abs(balanceByMember[family.name]))}`}</strong></div>)}
             <h3>Who pays whom</h3>
