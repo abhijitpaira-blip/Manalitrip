@@ -434,6 +434,9 @@ function App() {
     }
     setExpenses((current) => [...current, expense])
     setExpenseStatus('Preview mode: this expense is visible only in this browser.')
+    } finally {
+      setIsAddingExpense(false)
+    }
   }
 
   const notifyOutstandingMembers = async () => {
@@ -1185,10 +1188,7 @@ function App() {
     </div>
     </AuthGate>
   )
-    } finally {
-      setIsAddingExpense(false)
-    }
-  }
+}
 
 function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
