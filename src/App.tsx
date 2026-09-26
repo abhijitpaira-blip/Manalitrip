@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, Bell, Camera, Check, ChevronRight, CloudSun, Download, ExternalLink, IndianRupee, MapPin, Menu, Mountain, Plus, RefreshCw, Send, ShieldCheck, Users, Utensils } from 'lucide-react'
-import { checklist, families, itinerary, familyOfMember } from './data/trip'
+import { checklist, families, itinerary } from './data/trip'
 import { placeGuides } from './data/guides'
 import { isCloudSyncReady, supabase } from './lib/supabase'
 import { uploadTripPhoto } from './lib/gallery'
@@ -163,7 +163,7 @@ function App() {
   const [expenseDescription, setExpenseDescription] = useState('')
   const [expenseAmount, setExpenseAmount] = useState('')
   const [expensePayer, setExpensePayer] = useState('Abhijit')
-  const [expenseParticipants, setExpenseParticipants] = useState<string[]>(families.map((family) => family.name))
+  const [expenseParticipants, setExpenseParticipants] = useState<string[]>(members)
   const [expenseStatus, setExpenseStatus] = useState('')
   const [isAddingExpense, setIsAddingExpense] = useState(false)
   const [memories, setMemories] = useState<Memory[]>(starterMemories)
@@ -371,19 +371,14 @@ function App() {
 
   const progress = Math.round((done.length / checklist.length) * 100)
 
-  const balanceByMember = families.reduce<Record<string, number>>((balances, family) => {
-    balances[family.name] = 0
+  const balanceByMember = members.reduce<Record<string, number>>((balances, member) => {
+    balances[member] = 0
     return balances
   }, {})
   expenses.forEach((expense) => {
     const share = expense.amount / expense.participants.length
-    const payerFamily = familyOfMember[expense.paidBy] ?? expense.paidBy
-    if (balanceByMember[payerFamily] === undefined) balanceByMember[payerFamily] = 0
-    balanceByMember[payerFamily] += expense.amount
-    expense.participants.forEach((family) => {
-      if (balanceByMember[family] === undefined) balanceByMember[family] = 0
-      balanceByMember[family] -= share
-    })
+    balanceByMember[expense.paidBy] += expense.amount
+    expense.participants.forEach((member) => { balanceByMember[member] -= share })
   })
   const settlements: Settlement[] = []
   const creditors = Object.entries(balanceByMember).filter(([, balance]) => balance > 0.01).map(([member, balance]) => ({ member, balance }))
@@ -977,7 +972,7 @@ function App() {
               </div>
               <IndianRupee size={22} />
             </div>
-            <p>Add what was paid, choose which families benefited, and the app splits it equally among just those families.</p>
+            <p>Add what was paid, choose everyone who benefited, and the app splits it equally among just those members.</p>
             <div className="expense-form">
               <input value={expenseDescription} onChange={(event) => setExpenseDescription(event.target.value)} placeholder="What was this for?" aria-label="Expense description" />
               <input type="number" min="1" value={expenseAmount} onChange={(event) => setExpenseAmount(event.target.value)} placeholder="Amount in INR" aria-label="Expense amount" />
@@ -985,8 +980,8 @@ function App() {
                 {members.map((member) => <option key={member}>{member}</option>)}
               </select>
               <div className="expense-members">
-                <small>Shared by (families)</small>
-                {families.map((family) => <label key={family.name}><input type="checkbox" checked={expenseParticipants.includes(family.name)} onChange={() => setExpenseParticipants((current) => current.includes(family.name) ? current.filter((value) => value !== family.name) : [...current, family.name])} />{family.name}</label>)}
+                <small>Shared by</small>
+                {members.map((member) => <label key={member}><input type="checkbox" checked={expenseParticipants.includes(member)} onChange={() => setExpenseParticipants((current) => current.includes(member) ? current.filter((value) => value !== member) : [...current, member])} />{member}</label>)}
               </div>
               <button className="secondary-button" onClick={addExpense} disabled={isAddingExpense}><Plus size={16} /> {isAddingExpense ? 'Adding...' : 'Add expense'}</button>
             </div>
@@ -1014,8 +1009,8 @@ function App() {
               })}
             </div>
             <p className="settlement-note">Rakesh already paid ₹10,000 to Abhijit as an internal settlement (already reflected above).</p>
-            <h3>Family balances</h3>
-            {families.map((family) => <div className="family-row" key={family.name}><span>{family.name}</span><strong className={balanceByMember[family.name] >= 0 ? 'credit' : 'due'}>{balanceByMember[family.name] >= 0 ? `gets ${money.format(balanceByMember[family.name])}` : `owes ${money.format(Math.abs(balanceByMember[family.name]))}`}</strong></div>)}
+            <h3>Member balances</h3>
+            {members.map((member) => <div className="family-row" key={member}><span>{member}</span><strong className={balanceByMember[member] >= 0 ? 'credit' : 'due'}>{balanceByMember[member] >= 0 ? `gets ${money.format(balanceByMember[member])}` : `owes ${money.format(Math.abs(balanceByMember[member]))}`}</strong></div>)}
             <h3>Who pays whom</h3>
             {settlements.length > 0 ? settlements.map((settlement) => <div className="family-row" key={`${settlement.from}-${settlement.to}`}><span>{settlement.from} pays {settlement.to}</span><strong>{money.format(settlement.amount)}</strong></div>) : <p>Everyone is settled.</p>}
             <button className="secondary-button" onClick={notifyOutstandingMembers}><Bell size={16} /> Notify members who owe</button>
