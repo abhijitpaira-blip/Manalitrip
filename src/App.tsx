@@ -694,6 +694,22 @@ function App() {
 
   return (
     <AuthGate>
+    <aside className="sidebar-nav">
+      <div className="sidebar-brand">
+        <span className="brand-mark"><Mountain size={20} /></span>
+        <div>
+          <strong>Himachal</strong>
+          <small>Family Trip 2026</small>
+        </div>
+      </div>
+      <nav className="sidebar-links">
+        <button className={activeSection === 'home' ? 'selected' : ''} onClick={() => goTo('home', 'home')}><Mountain size={18} /> Home</button>
+        <button className={activeSection === 'itinerary' ? 'selected' : ''} onClick={() => goTo('itinerary', 'itinerary')}><MapPin size={18} /> Itinerary</button>
+        <button className={activeSection === 'expenses' ? 'selected' : ''} onClick={() => goTo('expenses', 'expenses')}><IndianRupee size={18} /> Expenses</button>
+        <button className={activeSection === 'photos' ? 'selected' : ''} onClick={() => goTo('photos', 'photos')}><Camera size={18} /> Photos</button>
+        <button className={activeSection === 'essentials' ? 'selected' : ''} onClick={() => goTo('essentials', 'essentials')}><Check size={18} /> Essentials</button>
+      </nav>
+    </aside>
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
