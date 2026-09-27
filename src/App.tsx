@@ -138,6 +138,7 @@ const starterExpenses: Expense[] = [
 function App() {
   const [now, setNow] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState(2)
+  const [searchQuery, setSearchQuery] = useState('')
   const [done, setDone] = useState<string[]>([])
   const [activeSection, setActiveSection] = useState('home')
   const [notes, setNotes] = useState<string[]>(['Remember warm layers for Kasol nights.'])
@@ -450,6 +451,30 @@ function App() {
     setActiveSection(section)
     document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+
+  const searchIndex: { type: string; label: string; hint: string; action: () => void }[] = [
+    ...itinerary.map((day) => ({
+      type: 'Day',
+      label: `Day ${day.day}: ${day.title}`,
+      hint: day.places.join(', '),
+      action: () => { setSelectedDay(day.day); goTo('itinerary', 'itinerary') },
+    })),
+    ...destinationOrder.map((name) => ({
+      type: 'Destination',
+      label: name,
+      hint: destinationDetails[name]?.tagline ?? '',
+      action: () => setActiveDestination(name),
+    })),
+    ...checklist.map((item) => ({
+      type: 'Packing',
+      label: item,
+      hint: 'Packing list',
+      action: () => goTo('essentials', 'essentials'),
+    })),
+  ]
+  const searchResults = searchQuery.trim().length > 0
+    ? searchIndex.filter((entry) => (entry.label + ' ' + entry.hint).toLowerCase().includes(searchQuery.trim().toLowerCase())).slice(0, 8)
+    : []
 
   const mapEmbedUrl = (query: string) => googleMapsApiKey
     ? `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(googleMapsApiKey)}&q=${encodeURIComponent(query)}`
@@ -810,6 +835,35 @@ function App() {
               </button>
             ))}
           </div>
+        </section>
+
+        <section className="search-section">
+          <div className="search-box">
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search anything for your trip..."
+              aria-label="Search the trip"
+            />
+          </div>
+          {searchResults.length > 0 && (
+            <div className="search-results">
+              {searchResults.map((result, index) => (
+                <button
+                  key={result.type + result.label + index}
+                  className="search-result-row"
+                  onClick={() => { result.action(); setSearchQuery('') }}
+                >
+                  <span className="search-result-type">{result.type}</span>
+                  <span className="search-result-label">{result.label}</span>
+                  {result.hint && <span className="search-result-hint">{result.hint}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          {searchQuery.trim().length > 0 && searchResults.length === 0 && (
+            <p className="search-empty">No matches for "{searchQuery}".</p>
+          )}
         </section>
 
         <section className="destinations-section">
