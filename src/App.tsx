@@ -28,6 +28,13 @@ const morningQuotes = [
   'Every day closer is one day nearer to our mountain story.',
 ]
 const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
+const weatherApiKey = import.meta.env.VITE_WEATHER_API_KEY as string | undefined
+const weatherPlaces = [
+  { name: 'Shimla', lat: 31.1048, lon: 77.1734 },
+  { name: 'Manali', lat: 32.2432, lon: 77.1892 },
+  { name: 'Kasol', lat: 32.0102, lon: 77.3152 },
+  { name: 'Amritsar', lat: 31.634, lon: 74.8723 },
+]
 const placeImages: Record<string, string> = {
   'Mall Road': 'https://commons.wikimedia.org/wiki/Special:FilePath/Mall_Road_Shimla_1.jpg',
   'Lakkar Bazaar': 'https://commons.wikimedia.org/wiki/Special:FilePath/Longwood_(Shimla).jpg',
@@ -139,6 +146,7 @@ function App() {
   const [now, setNow] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState(2)
   const [searchQuery, setSearchQuery] = useState('')
+  const [weatherData, setWeatherData] = useState<Record<string, { temp: number; condition: string; icon: string } | 'error'>>({})
   const [done, setDone] = useState<string[]>([])
   const [activeSection, setActiveSection] = useState('home')
   const [notes, setNotes] = useState<string[]>(['Remember warm layers for Kasol nights.'])
@@ -190,6 +198,31 @@ function App() {
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60000)
     return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (!weatherApiKey) return
+    let cancelled = false
+    weatherPlaces.forEach((place) => {
+      fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${place.lat}&lon=${place.lon}&units=metric&appid=${weatherApiKey}`)
+        .then((res) => { if (!res.ok) throw new Error('weather request failed'); return res.json() })
+        .then((data) => {
+          if (cancelled) return
+          setWeatherData((current) => ({
+            ...current,
+            [place.name]: {
+              temp: Math.round(data.main.temp),
+              condition: data.weather?.[0]?.main ?? 'Unknown',
+              icon: data.weather?.[0]?.icon ?? '01d',
+            },
+          }))
+        })
+        .catch(() => {
+          if (cancelled) return
+          setWeatherData((current) => ({ ...current, [place.name]: 'error' }))
+        })
+    })
+    return () => { cancelled = true }
   }, [])
 
   // Remembers who is using this device/browser, so the same name is
@@ -886,6 +919,35 @@ function App() {
           ) : (
             <p className="map-note">Add a Google Maps browser key to show the live route map here.</p>
           )}
+        </section>
+
+        <section className="weather-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">FORECAST</p>
+              <h2>Weather</h2>
+            </div>
+          </div>
+          <div className="weather-grid">
+            {weatherPlaces.map((place) => {
+              const info = weatherData[place.name]
+              return (
+                <div className="weather-card" key={place.name}>
+                  <strong>{place.name}</strong>
+                  {!weatherApiKey && <p className="weather-note">Weather API not configured yet.</p>}
+                  {weatherApiKey && !info && <p className="weather-note">Loading...</p>}
+                  {weatherApiKey && info === 'error' && <p className="weather-note">Weather unavailable right now.</p>}
+                  {weatherApiKey && info && info !== 'error' && (
+                    <>
+                      <img src={`https://openweathermap.org/img/wn/${info.icon}@2x.png`} alt={info.condition} className="weather-icon" />
+                      <span className="weather-temp">{info.temp}°C</span>
+                      <small className="weather-condition">{info.condition}</small>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </section>
 
         <section className="destinations-section">
