@@ -866,6 +866,28 @@ function App() {
           )}
         </section>
 
+        <section className="route-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">THE JOURNEY</p>
+              <h2>Trip route</h2>
+            </div>
+          </div>
+          <p className="route-summary">Shimla → Manali → Kasol → Amritsar · 7N / 8D</p>
+          {mapEmbedUrl('Shimla to Manali to Kasol to Amritsar road trip route') ? (
+            <iframe
+              className="route-map"
+              title="Trip route map"
+              src={mapEmbedUrl('Shimla to Manali to Kasol to Amritsar road trip route')}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              style={{ display: 'block', width: '100%', height: 280, border: 0, borderRadius: 'var(--radius)' }}
+            />
+          ) : (
+            <p className="map-note">Add a Google Maps browser key to show the live route map here.</p>
+          )}
+        </section>
+
         <section className="destinations-section">
           <div className="section-heading">
             <div>
