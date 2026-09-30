@@ -634,7 +634,7 @@ main {
 /* ---------- Tour package & train settlement ---------- */
 
 .settlement-table { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; overflow-x: auto; }
-.settlement-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 1.2fr; gap: 8px; padding: 10px 8px; align-items: center; font-size: 12.5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.settlement-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1.2fr; gap: 8px; padding: 10px 8px; align-items: center; font-size: 12.5px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .settlement-head { font-weight: 700; text-transform: uppercase; font-size: 10.5px; color: var(--sub); letter-spacing: 0.3px; border-bottom: 2px solid var(--line); }
 .settlement-row strong.due { color: var(--red); }
 .settlement-row strong.credit { color: var(--green); }
