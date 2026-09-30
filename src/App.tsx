@@ -1144,19 +1144,32 @@ function App() {
             <div className="expense-list">
               {expenses.map((expense) => <div className="expense-entry" key={expense.id}><span><strong>{expense.description}</strong><small>Paid by {expense.paidBy} · {expense.participants.length} members · {money.format(expense.amount / expense.participants.length)} each</small></span><b>{money.format(expense.amount)}</b></div>)}
             </div>
-            <h3>Tour package &amp; train settlement</h3>
+            <h3>Tour package settlement</h3>
             <div className="settlement-table">
-              <div className="settlement-row settlement-head"><span>Family</span><span>Package</span><span>Train</span><span>Total</span><span>Paid</span><span>Balance</span></div>
+              <div className="settlement-row settlement-head"><span>Family</span><span>Package share</span><span>Paid</span><span>Balance</span></div>
               {families.map((family) => {
-                const total = family.share + family.trainShare
-                const balance = total - family.paid
+                const balance = family.share - family.packagePaid
                 return (
                   <div className="settlement-row" key={family.name}>
                     <span>{family.name}</span>
                     <span>{money.format(family.share)}</span>
+                    <span>{money.format(family.packagePaid)}</span>
+                    <strong className={balance > 0 ? 'due' : 'credit'}>{balance > 0 ? `${money.format(balance)} due` : 'Settled'}</strong>
+                  </div>
+                )
+              })}
+            </div>
+
+            <h3>Train fare settlement</h3>
+            <div className="settlement-table">
+              <div className="settlement-row settlement-head"><span>Family</span><span>Train share</span><span>Paid</span><span>Balance</span></div>
+              {families.map((family) => {
+                const balance = family.trainShare - family.trainPaid
+                return (
+                  <div className="settlement-row" key={family.name}>
+                    <span>{family.name}</span>
                     <span>{money.format(family.trainShare)}</span>
-                    <span>{money.format(total)}</span>
-                    <span>{money.format(family.paid)}</span>
+                    <span>{money.format(family.trainPaid)}</span>
                     <strong className={balance > 0 ? 'due' : 'credit'}>{balance > 0 ? `${money.format(balance)} due` : 'Settled'}</strong>
                   </div>
                 )
