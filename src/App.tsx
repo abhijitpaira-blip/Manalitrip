@@ -844,7 +844,10 @@ Message: "${original}"`
 
       <main>
         {activeSection !== 'home' && (
-          <button className="mobile-back-button" onClick={() => goTo('home', 'home')}><ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} /> Back to Home</button>
+          <button className="mobile-back-button" onClick={() => goTo('home', 'home')}>
+            <ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} />
+            {activeSection === 'itinerary' ? 'Itinerary' : activeSection === 'expenses' ? 'Expenses' : activeSection === 'photos' ? 'Photos' : 'Packing, chat & more'}
+          </button>
         )}
         {sosStage === 'active' && (
           <div className="sos-banner">
@@ -1143,7 +1146,7 @@ Message: "${original}"`
 
         <div data-mobile-window="more" data-visible={(activeSection === 'essentials' || activeSection === 'expenses') ? 'true' : 'false'}>
         <section id="essentials" className="lower-grid">
-          <article className="panel checklist-panel">
+          <article className="panel checklist-panel" data-mobile-window="essentials" data-visible={activeSection === 'essentials' ? 'true' : 'false'}>
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">READY WHEN WE ARE</p>
@@ -1161,7 +1164,7 @@ Message: "${original}"`
             ))}
           </article>
 
-          <article id="expenses" className="panel expense-panel">
+          <article id="expenses" className="panel expense-panel" data-mobile-window="expenses" data-visible={activeSection === 'expenses' ? 'true' : 'false'}>
             <div className="panel-heading">
               <div>
                 <p className="eyebrow">SHARED LEDGER</p>
@@ -1355,7 +1358,7 @@ Message: "${original}"`
           </article>
         </section>
 
-        <section className="chat-panel panel">
+        <section className="chat-panel panel" data-mobile-window="essentials" data-visible={activeSection === 'essentials' ? 'true' : 'false'}>
           <div className="panel-heading">
             <div>
               <p className="eyebrow">FAMILY CHAT</p>
@@ -1386,7 +1389,7 @@ Message: "${original}"`
           <small>{chatStatus || (isCloudSyncReady ? 'Everyone sees new messages live.' : 'Preview mode: messages stay in this browser until Supabase is connected.')}</small>
         </section>
 
-        <section className="panel gemini-panel">
+        <section className="panel gemini-panel" data-mobile-window="essentials" data-visible={activeSection === 'essentials' ? 'true' : 'false'}>
           <div className="panel-heading">
             <div>
               <p className="eyebrow">AI ASSIST</p>
