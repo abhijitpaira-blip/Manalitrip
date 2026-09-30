@@ -167,6 +167,7 @@ function App() {
   const [chatText, setChatText] = useState('')
   const [chatMember, setChatMember] = useState(() => localStorage.getItem('trip-chat-member') || 'Abhijit')
   const [chatStatus, setChatStatus] = useState('')
+  const [isSofteningChat, setIsSofteningChat] = useState(false)
   const [realtimeStatus, setRealtimeStatus] = useState(isCloudSyncReady ? 'Connecting...' : 'Preview mode')
   const [expenses, setExpenses] = useState<Expense[]>(starterExpenses)
   const [expenseDescription, setExpenseDescription] = useState('')
@@ -638,6 +639,41 @@ function App() {
 
     setChatMessages((current) => [...current, { id: Date.now(), member: chatMember, text, time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }])
     setChatStatus('Preview mode: this message is only visible in this browser.')
+  }
+
+  const sendPoliteMessage = async () => {
+    if (!chatText.trim() || isSofteningChat) return
+    const original = chatText.trim()
+    setIsSofteningChat(true)
+    setChatStatus('Rewriting your message politely...')
+    try {
+      const prompt = `Rewrite the message below so it sounds warm, polite and gentle for a family group chat, and could never come across as rude or harsh to anyone. Keep all facts, times, places and amounts exactly the same. Reply with only these two lines and nothing else:
+English: <polite English version>
+Bengali: <polite Bengali version, written in Bangla script>
+
+Message: "${original}"`
+      const answer = await askGemini(prompt)
+      setChatText('')
+      if (supabase) {
+        setChatStatus('Sending to the family...')
+        const { error } = await supabase.from('chat_messages').insert({ member: chatMember, text: answer })
+        if (error) {
+          setChatStatus('Message could not be sent. Please try again.')
+          setChatText(original)
+          return
+        }
+        setChatStatus('Polite message sent to everyone.')
+        void notifyTrip({ title: 'New trip message', body: `${chatMember}: ${answer}`, excludeMemberId: slugifyMember(chatMember) })
+      } else {
+        setChatMessages((current) => [...current, { id: Date.now(), member: chatMember, text: answer, time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) }])
+        setChatStatus('Preview mode: this message is only visible in this browser.')
+      }
+    } catch (error) {
+      setChatStatus(error instanceof Error ? error.message : 'Could not rewrite the message right now.')
+      setChatText(original)
+    } finally {
+      setIsSofteningChat(false)
+    }
   }
 
   const shareUpdate = async () => {
@@ -1338,6 +1374,7 @@ function App() {
             </select>
             <input value={chatText} onChange={(event) => setChatText(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') sendChatMessage() }} placeholder="Write to the family..." aria-label="Chat message" />
             <button onClick={sendChatMessage} aria-label="Send chat message"><Send size={17} /></button>
+            <button onClick={sendPoliteMessage} disabled={isSofteningChat} aria-label="Rewrite politely in English and Bengali and send" title="Rewrite politely (English + Bengali)">{isSofteningChat ? '...' : '🕊️'}</button>
           </div>
           <small>{chatStatus || (isCloudSyncReady ? 'Everyone sees new messages live.' : 'Preview mode: messages stay in this browser until Supabase is connected.')}</small>
         </section>
