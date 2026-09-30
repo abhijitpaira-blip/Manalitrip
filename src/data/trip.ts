@@ -1,10 +1,10 @@
 export type ItineraryDay = { day: number; date: string; title: string; places: string[]; note: string }
 
 export const families = [
-  { name: 'Abhijit Paira', weight: 2.5, share: 37500, trainShare: 12186, paid: 0 },
-  { name: 'Rakesh Mandal', weight: 2, share: 30000, trainShare: 9748, paid: 0 },
-  { name: 'Rajesh Mahata', weight: 2.5, share: 37500, trainShare: 10688, paid: 0 },
-  { name: 'Bikash Patra', weight: 2, share: 30000, trainShare: 8550, paid: 0 },
+  { name: 'Abhijit Paira', weight: 2.5, share: 37500, trainShare: 12186, packagePaid: 0, trainPaid: 0 },
+  { name: 'Rakesh Mandal', weight: 2, share: 30000, trainShare: 9748, packagePaid: 0, trainPaid: 0 },
+  { name: 'Rajesh Mahata', weight: 2.5, share: 37500, trainShare: 10688, packagePaid: 0, trainPaid: 0 },
+  { name: 'Bikash Patra', weight: 2, share: 30000, trainShare: 8550, packagePaid: 0, trainPaid: 0 },
 ]
 
 export const familyMembers: Record<string, string[]> = {
