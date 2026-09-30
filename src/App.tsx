@@ -843,6 +843,9 @@ Message: "${original}"`
       </header>
 
       <main>
+        {activeSection !== 'home' && (
+          <button className="mobile-back-button" onClick={() => goTo('home', 'home')}><ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} /> Back to Home</button>
+        )}
         {sosStage === 'active' && (
           <div className="sos-banner">
             <div className="sos-banner-head">
@@ -863,6 +866,7 @@ Message: "${original}"`
           </div>
         )}
 
+        <div data-mobile-window="home" data-visible={activeSection === 'home' ? 'true' : 'false'}>
         <section className="hero">
           <div className="hero-copy">
             <p className="eyebrow">OUR NEXT CHAPTER</p>
@@ -1089,7 +1093,9 @@ Message: "${original}"`
           <button className="text-button">View all <ChevronRight size={16} /></button>
         </section>
 
-        <section id="itinerary" className="itinerary-layout">
+        </div>
+
+        <section id="itinerary" className="itinerary-layout" data-mobile-window="itinerary" data-visible={activeSection === 'itinerary' ? 'true' : 'false'}>
           <div className="day-list">
             {itinerary.map((item) => (
               <button className={`day-row ${item.day === selectedDay ? 'active' : ''}`} key={item.day} onClick={() => setSelectedDay(item.day)}>
@@ -1135,6 +1141,7 @@ Message: "${original}"`
           </article>
         </section>
 
+        <div data-mobile-window="more" data-visible={(activeSection === 'essentials' || activeSection === 'expenses') ? 'true' : 'false'}>
         <section id="essentials" className="lower-grid">
           <article className="panel checklist-panel">
             <div className="panel-heading">
@@ -1220,7 +1227,7 @@ Message: "${original}"`
           </article>
         </section>
 
-        <section id="photos" className="gallery-panel panel">
+        <section id="photos" className="gallery-panel panel" data-mobile-window="photos" data-visible={activeSection === 'photos' ? 'true' : 'false'}>
           <div className="panel-heading">
             <div>
               <p className="eyebrow">OUR SHARED ALBUM</p>
@@ -1394,6 +1401,7 @@ Message: "${original}"`
           {geminiStatus && <small className="notification-status" style={{ display: 'block' }}>{geminiStatus}</small>}
           <p className="gemini-reply">{geminiReply}</p>
         </section>
+        </div>
       </main>
 
       <nav className="bottom-nav">
@@ -1401,7 +1409,7 @@ Message: "${original}"`
         <button className={activeSection === 'trip' ? 'selected' : ''} onClick={() => goTo('trip', 'itinerary')}><MapPin size={19} />Trip</button>
         <button className={activeSection === 'expenses' ? 'selected' : ''} onClick={() => goTo('expenses', 'expenses')}><IndianRupee size={19} />Expenses</button>
         <button className={activeSection === 'photos' ? 'selected' : ''} onClick={() => goTo('photos', 'photos')}><Camera size={19} />Photos</button>
-        <button aria-label="Open menu"><Menu size={20} /></button>
+        <button className={activeSection === 'essentials' || activeSection === 'expenses' ? 'selected' : ''} onClick={() => goTo('essentials', 'essentials')} aria-label="Open menu"><Menu size={20} /></button>
       </nav>
     </div>
     </AuthGate>
