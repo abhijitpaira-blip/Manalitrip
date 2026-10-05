@@ -445,7 +445,7 @@ function App() {
     if (supabase) {
       const { data, error } = await supabase.from('expenses').insert({ description, amount: Math.round(amount), paid_by_member: expensePayer }).select('id, description, amount, paid_by_member, created_at').single()
       if (error || !data) {
-        setExpenseStatus('Could not save this expense. Please try again.')
+        setExpenseStatus(`Could not save this expense (${error?.message ?? 'no response'}). Please try again.`)
         return
       }
       const { error: participantError } = await supabase.from('expense_participants').insert(expenseParticipants.map((member) => ({ expense_id: data.id, member })))
